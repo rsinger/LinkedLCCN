@@ -1,4 +1,5 @@
 rsinger-enhanced_marc --source gems.github.com
 rsinger-curies --source gems.github.com
 nokogiri
+isbn-tools
 rdfobjects

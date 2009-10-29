@@ -33,19 +33,39 @@ def get_marc(lccn)
 end
 
 def to_rdf(marc)
-  rdf = case marc.class.to_s
-  when "MARC::SoundRecord" then model_sound(marc)
+  id = marc['010'].value.strip
+  resource = Resource.new("http://lccn.heroku.com/#{id}")
+  resource.relate("[owl:sameAs]", "http://lccn.loc.gov/#{id}")  
+  case marc.class.to_s
+  when "MARC::SoundRecord" then model_sound(marc, resource)
+  when "MARC::BookRecord" then model_book(marc, resource)
+  when "MARC::SerialRecord" then model_serial(marc, resource)
+  when "MARC::MapRecord" then model_map(marc, resource)
+  when "MARC::VisualRecord" then model_visual(marc, resource)
   end
-  rdf
+  marc_common(resource, marc)
+  resource
 end
 
-def model_sound(marc)
-  id = marc['010'].value.strip
-  resource = Resource.new("http://lccn.code4lib.org/#{id}")
+def model_sound(marc, resource)
   resource.relate("[rdf:type]", "[mo:Recording]")
-  resource.relate("[owl:sameAs]", "http://lccn.loc.gov/#{id}")
-  resource.assert("[dcterms:title]", Literal.new(marc['245']['a']))
   resource
+end
+
+def model_book(marc, resource)
+end
+
+def model_serial(marc, resource)
+end
+
+def model_map(marc, resource)
+end
+
+def model_visual(marc, resource)
+end
+
+def marc_common(resource, marc)
+  resource.assert("[dcterms:title]", marc['245']['a'])
 end
 
 def to_rdfxml(resource)

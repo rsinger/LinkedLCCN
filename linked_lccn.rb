@@ -57,20 +57,66 @@ def model_sound(marc, resource)
 end
 
 def model_book(marc, resource)
-  unless marc.is_manuscript?
-    resource.relate("[rdf:type]","[bibo:Book]")
-  else
+  if marc.is_conference?
+    resource.relate("[rdf:type]","[bibo:Proceedings]")
+  elsif marc.is_manuscript?
     resource.relate("[rdf:type]","[bibo:Manuscript]")
+  elsif marc.nature_of_contents && marc.nature_of_contents.index("m")
+    resource.relate("[rdf:type]","[bibo:Thesis]")
+  elsif marc.nature_of_contents && marc.nature_of_contents.index("u")
+    resource.relate("[rdf:type]","[bibo:Standard]")
+  elsif marc.nature_of_contents && marc.nature_of_contents.index("j")
+    resource.relate("[rdf:type]","[bibo:Patent]")    
+  elsif marc.nature_of_contents && marc.nature_of_contents.index("t")
+    resource.relate("[rdf:type]","[bibo:Report]")
+  elsif marc.nature_of_contents && marc.nature_of_contents.index("l")
+    resource.relate("[rdf:type]","[bibo:Legislation]")
+  elsif marc.nature_of_contents && marc.nature_of_contents.index("v")
+    resource.relate("[rdf:type]","[bibo:LegalCaseDocument]")
+  elsif marc.nature_of_contents && !(marc.nature_of_contents & ["c", "d", "e", "r"]).empty?
+    resource.relate("[rdf:type]","[bibo:ReferenceSource]")
+  else
+    resource.relate("[rdf:type]", "[bibo:Book]")
+  end
+  if marc.nature_of_contents
+    marc.nature_of_contents(true).each do | genre |        
+      resource.assert("[dcterms:type]", genre)
+    end
   end
 end
 
 def model_serial(marc, resource)
+  if marc.nature_of_contents
+    marc.nature_of_contents(true).each do | genre |        
+      resource.assert("[dcterms:type]", genre)
+    end
+  end
+  type = marc.serial_type(true)
+  if type == 'Newspaper'
+    resource.relate("[rdf:type]","[bibo:Newspaper]")
+  elsif type == 'Website'
+    resource.relate("[rdf:type]","[bibo:Website]") 
+  elsif type == 'Periodical'    
+    if marc['245'].to_s =~ /\bjournal\b/i
+      resource.relate("[rdf:type]","[bibo:Journal]")
+    elsif marc['245'].to_s =~ /\bmagazine\b/i
+      resource.relate("[rdf:type]","[bibo:Magazine]")
+    else
+     resource.relate("[rdf:type]","[bibo:Periodical]")
+    end
+  end
 end
 
 def model_map(marc, resource)
 end
 
 def model_visual(marc, resource)
+  type = marc.material_type(true)
+  if type == "Videorecording" or (marc['245'] && marc['245']['h'] && marc['245']['h'] =~ /videorecording/)
+    resource.relate("[rdf:type]","[bibo:Film]")
+  elsif type
+    resource.assert("[dct:type]", type)
+  end  
 end
 
 def model_generic(marc, resource)

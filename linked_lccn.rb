@@ -36,7 +36,7 @@ end
 
 def to_rdf(marc)
   id = marc['010'].value.strip
-  resource = Resource.new("http://lccn.heroku.com/#{id}")
+  resource = Resource.new("http://lccn.heroku.com/#{id}#i")
   resource.relate("[owl:sameAs]", "http://lccn.loc.gov/#{id}")  
   resource.assert("[bibo:lccn]", id)
   case marc.class.to_s

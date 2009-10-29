@@ -10,10 +10,11 @@ include RDFObject
 configure do
   Curie.add_prefixes! :mo=>"http://purl.org/ontology/mo/", :skos=>"http://www.w3.org/2004/02/skos/core#",
    :owl=>'http://www.w3.org/2002/07/owl#', :wgs84 => 'http://www.w3.org/2003/01/geo/wgs84_pos#', 
-   :dcterms => 'http://purl.org/dc/terms/', :bibo => 'http://purl.org/ontology/bibo/'
+   :dcterms => 'http://purl.org/dc/terms/', :bibo => 'http://purl.org/ontology/bibo/', :rda=>"http://RDVocab.info/Elements/"
 end
 get '/:id' do
   marc = get_marc(params["id"])
+  not_found if marc.nil?
   rdf = to_rdf(marc)
   content_type 'application/rdf+xml', :charset => 'utf-8'
   to_rdfxml(rdf)
@@ -37,6 +38,7 @@ def to_rdf(marc)
   id = marc['010'].value.strip
   resource = Resource.new("http://lccn.heroku.com/#{id}")
   resource.relate("[owl:sameAs]", "http://lccn.loc.gov/#{id}")  
+  resource.assert("[bibo:lccn]", id)
   case marc.class.to_s
   when "MARC::SoundRecord" then model_sound(marc, resource)
   when "MARC::BookRecord" then model_book(marc, resource)
@@ -55,6 +57,11 @@ def model_sound(marc, resource)
 end
 
 def model_book(marc, resource)
+  unless marc.is_manuscript?
+    resource.relate("[rdf:type]","[bibo:Book]")
+  else
+    resource.relate("[rdf:type]","[bibo:Manuscript]")
+  end
 end
 
 def model_serial(marc, resource)
@@ -70,7 +77,26 @@ def model_generic(marc, resource)
 end
 
 def marc_common(resource, marc)
-  resource.assert("[dcterms:title]", marc['245']['a'])
+  if marc['245']
+    if marc['245']['a']
+      title = marc['245']['a'].strip_trailing_punct
+      resource.assert("[rda:titleProper]", marc['245']['a'].strip_trailing_punct)
+    end
+    if marc['245']['b']
+      title << " "+marc['245']['b'].strip_trailing_punct
+      resource.assert("[rda:otherTitleInformation]", marc['245']['b'].strip_trailing_punct)
+    end
+    if marc['245']['c']
+      resource.assert("[rda:statementOfResponsibility]", marc['245']['c'].strip_trailing_punct)
+    end
+  end
+  if marc['245']['n']
+    resource.assert("[bibo:number]", marc['245']['n'])
+  end
+  resource.assert("[dcterms:title]", title)
+  if marc['210']
+    resource.assert("[bibo:shortTitle]", marc['210']['a'].strip_trailing_punct)
+  end
   if marc['020'] && marc['020']['a']
     isbn = ISBN_Tools.cleanup(marc['020']['a'].strip_trailing_punct)
     if ISBN_Tools.is_valid?(isbn)
@@ -83,7 +109,7 @@ def marc_common(resource, marc)
         resource.assert("[bibo:isbn10]", ISBN_Tools.isbn13_to_isbn10(isbn))          
         resource.relate("[owl:sameAs]", "http://purl.org/NET/book/isbn/#{ISBN_Tools.isbn13_to_isbn10(isbn)}#book")        
       end
-    end
+    end    
   end
   
   if marc['022'] && marc['022']['a']
@@ -103,6 +129,16 @@ def marc_common(resource, marc)
       end
     end  
   end
+  
+  if marc['250'] && marc['250']['a']
+    resource.assert("[bibo:edition]", marc['250']['a'])
+  end
+  if marc['246'] && marc['246']['a']
+    resource.assert("[rda:parallelTitleProper]", marc['246']['a'].strip_trailing_punct)
+  end
+  if marc['767'] && marc['767']['t']
+    resource.assert("[rda:parallelTitleProper]", marc['767']['t'].strip_trailing_punct)
+  end  
 end
 
 def get_lcsh(subject_string)
@@ -186,3 +222,6 @@ class String
   end
 end
 
+not_found do
+  "Resource not found"
+end

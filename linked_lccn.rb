@@ -37,7 +37,7 @@ end
 def to_rdf(marc)
   id = marc['010'].value.strip
   resource = Resource.new("http://lccn.heroku.com/#{id}#i")
-  resource.relate("[owl:sameAs]", "http://lccn.loc.gov/#{id}")  
+  resource.relate("[foaf:isPrimaryTopicOf]", "http://lccn.loc.gov/#{id}")  
   resource.assert("[bibo:lccn]", id)
   case marc.class.to_s
   when "MARC::SoundRecord" then model_sound(marc, resource)
@@ -53,6 +53,13 @@ end
 
 def model_sound(marc, resource)
   resource.relate("[rdf:type]", "[mo:Recording]")
+  upcs = marc.find_all {|f| f.tag == "024"}
+  upcs.each do | upc |
+    next unless upc.indicator1 == "1"
+    resource.assert("[mo:barcode]", upc['a'])
+    mbrainz = dbtune_lookup(upc['a'])
+    resource.relate("[owl:sameAs]", mbrainz) if mbrainz
+  end
   resource
 end
 
@@ -73,7 +80,7 @@ def model_book(marc, resource)
     resource.relate("[rdf:type]","[bibo:Legislation]")
   elsif marc.nature_of_contents && marc.nature_of_contents.index("v")
     resource.relate("[rdf:type]","[bibo:LegalCaseDocument]")
-  elsif marc.nature_of_contents && !(marc.nature_of_contents & ["c", "d", "e", "r"]).empty?
+  elsif marc.nature_of_contents && !(marc.nature_of_contents & ["d", "e", "r"]).empty?
     resource.relate("[rdf:type]","[bibo:ReferenceSource]")
   else
     resource.relate("[rdf:type]", "[bibo:Book]")
@@ -103,6 +110,22 @@ def model_serial(marc, resource)
       resource.relate("[rdf:type]","[bibo:Magazine]")
     else
      resource.relate("[rdf:type]","[bibo:Periodical]")
+    end
+  end
+  if marc['022']
+    issn = marc['022']['a'].gsub(/[^0-9{4}\-?0-9{3}0-9Xx]/,"") if marc['022']['a']
+    unless issn.empty?
+      periodical = Resource.new("http://periodicals.dataincubator.org/issn/#{issn}") 
+      begin
+        collection = periodical.describe
+      
+        if collection[periodical.uri].owl && collection[periodical.uri].owl['sameAs']
+          [*collection[periodical.uri].owl['sameAs']].each do | same_as |
+            resource.assert("[owl:sameAs]", same_as)
+          end
+        end
+      rescue RuntimeError
+      end
     end
   end
 end
@@ -153,9 +176,16 @@ def marc_common(resource, marc)
       else
         resource.assert("[bibo:isbn13]",isbn)
         resource.assert("[bibo:isbn10]", ISBN_Tools.isbn13_to_isbn10(isbn))          
-        resource.relate("[owl:sameAs]", "http://purl.org/NET/book/isbn/#{ISBN_Tools.isbn13_to_isbn10(isbn)}#book")        
+        resource.relate("[owl:sameAs]", "http://purl.org/NET/book/isbn/#{ISBN_Tools.isbn13_to_isbn10(isbn)}#book")  
+        isbn = ISBN_Tools.isbn13_to_isbn10(isbn) 
       end
-    end    
+      library_thing = Resource.new("http://dilettantes.code4lib.org/LODThing/isbns/#{isbn}#book") 
+      begin
+        collection = library_thing.describe
+        resource.relate("[owl:sameAs]", library_thing)
+      rescue RuntimeError
+      end      
+    end     
   end
   
   if marc['022'] && marc['022']['a']
@@ -247,6 +277,29 @@ def subject_to_string(subject)
     literal << subfield.value
   end
   literal.strip_trailing_punct  
+end
+
+def dbtune_lookup(upc)
+  uri = URI.parse("http://dbtune.org/musicbrainz/sparql")
+  sparql = <<SPARQL
+PREFIX mo: <http://purl.org/ontology/mo/>
+DESCRIBE * WHERE {
+  ?obj mo:barcode "#{upc}"
+}
+SPARQL
+  uri.query = "query=#{CGI.escape(sparql)}"
+  response = Net::HTTP.get uri
+  collection = Parser.parse response
+  return nil if collection.empty?
+  coll = collection.find_by_predicate("[rdf:type]")
+  coll.each do | c |
+    return nil unless c.is_a?(Array)
+    c.each do | match |
+      next unless match.is_a?(Resource)
+      return match if match['[mo:barcode]'] == upc
+    end
+  end
+  nil
 end
 
 

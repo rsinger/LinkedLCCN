@@ -1,6 +1,6 @@
 require 'rubygems'
 require 'sinatra'
-
+require 'json'
 require 'net/http'
 require 'enhanced_marc'
 require 'rdf_objects'
@@ -105,6 +105,10 @@ def model_book(marc, resource)
     marc.nature_of_contents(true).each do | genre |        
       resource.assert("[dcterms:type]", genre)
     end
+  end
+  if ol = openlibrary_lookup(marc['010'].value.strip)
+    puts ol.first['key']
+    resource.relate("[owl:sameAs]", "http://openlibrary.org#{ol.first['key']}")
   end
 end
 
@@ -328,6 +332,12 @@ SPARQL
   resources
 end
 
+def openlibrary_lookup(lccn)
+  uri = URI.parse "http://openlibrary.org/query.json?type=/type/edition&lccn=#{lccn}&*="
+  response = JSON.parse(Net::HTTP.get(uri))
+  return nil if response.empty?
+  return response
+end
 
 class String
   def slug

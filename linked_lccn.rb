@@ -155,8 +155,11 @@ end
 
 def model_visual(marc, resource)
   type = marc.material_type(true)
-  if type == "Videorecording" or (marc['245'] && marc['245']['h'] && marc['245']['h'] =~ /videorecording/)
+  if (type == "Videorecording" or type == "Motion picture") or (marc['245'] && marc['245']['h'] && marc['245']['h'] =~ /videorecording/)
     resource.relate("[rdf:type]","[bibo:Film]")
+    if dbpedia = dbpedia_film_lookup(marc['245']['a'].strip_trailing_punct)
+      resource.relate("[dcterms:isVersionOf]", dbpedia)
+    end
   elsif type
     resource.assert("[dct:type]", type)
   end  
@@ -337,6 +340,34 @@ def openlibrary_lookup(lccn)
   response = JSON.parse(Net::HTTP.get(uri))
   return nil if response.empty?
   return response
+end
+
+def dbpedia_film_lookup(title)
+
+sparql = <<SPARQL
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+DESCRIBE * WHERE {
+ ?obj rdf:type <http://dbpedia.org/ontology/Film> .
+ ?obj foaf:name ?title FILTER regex(?title, "^#{title}$", "i" )
+}
+SPARQL
+  uri = "http://dbpedia.org/sparql?query=#{CGI.escape(sparql)}"
+  puts uri
+  response = HTTPClient.fetch(uri)
+  collection = XMLParser.parse response
+  return nil if collection.empty?
+  resources = collection.find_by_predicate("[rdf:type]")
+  resources.each do | r |
+    break unless r.is_a?(Array)
+    r.each do | resource |
+      next unless resource.is_a?(Resource)
+      [*resource['[rdf:type]']].each do | type |
+        return resource if type.uri == "http://dbpedia.org/ontology/Film"
+      end
+    end
+  end
+  nil
 end
 
 class String

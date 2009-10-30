@@ -58,9 +58,25 @@ def model_sound(marc, resource)
     next unless upc.indicator1 == "1"
     resource.assert("[mo:barcode]", upc['a'])
     mbrainz = dbtune_lookup(upc['a'])
-    resource.relate("[owl:sameAs]", mbrainz) if mbrainz
+    if mbrainz
+      resource.relate("[owl:sameAs]", mbrainz[:release]) if mbrainz[:release]
+      if mbrainz[:record] && mbrainz[:record].foaf["maker"]
+        resource.assert("[dcterms:creator]", mbrainz[:record].foaf["maker"])
+        if mbrainz[:record].mo["track"]
+          [*mbrainz[:record].mo["track"]].each do | track |            
+            resource.assert("[mo:track]", track)
+          end
+        end
+        if mbrainz[:record].owl['sameAs']
+          [*mbrainz[:record].owl['sameAs']].each do | sames |
+            if sames.uri =~ /^http:\/\/dbpedia\.org\//
+              resource.assert("[rdfs:seeAlso]", sames)
+            end
+          end
+        end
+      end
+    end
   end
-  resource
 end
 
 def model_book(marc, resource)
@@ -289,17 +305,27 @@ DESCRIBE * WHERE {
 SPARQL
   uri.query = "query=#{CGI.escape(sparql)}"
   response = Net::HTTP.get uri
+  resources = {:record=>nil, :release=>nil}
   collection = Parser.parse response
   return nil if collection.empty?
-  coll = collection.find_by_predicate("[rdf:type]")
-  coll.each do | c |
-    return nil unless c.is_a?(Array)
-    c.each do | match |
-      next unless match.is_a?(Resource)
-      return match if match['[mo:barcode]'] == upc
+  releases = collection.find_by_predicate("[rdf:type]")
+  releases.each do | r |
+    break unless r.is_a?(Array)
+    r.each do | release |
+      next unless release.is_a?(Resource)
+      resources[:release] = release if release['[mo:barcode]'] == upc
     end
   end
-  nil
+  records = collection.find_by_predicate("[mo:release]")
+  records.each do | r |
+    break unless r.is_a?(Array)
+    r.each do | record |
+      next unless record.is_a?(Resource)
+      record.describe
+      resources[:record] = record
+    end
+  end  
+  resources
 end
 
 

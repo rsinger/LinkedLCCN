@@ -157,7 +157,9 @@ def model_visual(marc, resource)
   type = marc.material_type(true)
   if (type == "Videorecording" or type == "Motion picture") or (marc['245'] && marc['245']['h'] && marc['245']['h'] =~ /videorecording/)
     resource.relate("[rdf:type]","[bibo:Film]")
-    if dbpedia = dbpedia_film_lookup(marc['245']['a'].strip_trailing_punct)
+    if linkedmdb = linkedmdb_lookup(marc['245']['a'].strip_trailing_punct)
+      resource.relate("[dcterms:isVersionOf]", linkedmdb)
+    elsif dbpedia = dbpedia_film_lookup(marc['245']['a'].strip_trailing_punct)
       resource.relate("[dcterms:isVersionOf]", dbpedia)
     end
   elsif type
@@ -342,18 +344,46 @@ def openlibrary_lookup(lccn)
   return response
 end
 
-def dbpedia_film_lookup(title)
+def linkedmdb_lookup(title)
 
 sparql = <<SPARQL
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+PREFIX movie: <http://data.linkedmdb.org/resource/movie/>
+PREFIX dc: <http://purl.org/dc/terms/>
 DESCRIBE * WHERE {
- ?obj rdf:type <http://dbpedia.org/ontology/Film> .
- ?obj foaf:name ?title FILTER regex(?title, "^#{title}$", "i" )
+ ?obj rdf:type movie:film .
+ ?obj dc:title ?title FILTER regex(?title, "^#{title}$", "i" )
+}
+SPARQL
+  uri = "http://data.linkedmdb.org/sparql?query=#{CGI.escape(sparql)}"
+  response = HTTPClient.fetch(uri)
+  collection = XMLParser.parse response
+  return nil if collection.empty?
+  resources = collection.find_by_predicate("[rdf:type]")
+  resources.each do | r |
+    break unless r.is_a?(Array)
+    r.each do | resource |
+      next unless resource.is_a?(Resource)
+      [*resource['[rdf:type]']].each do | type |
+        return resource if type.uri == "http://data.linkedmdb.org/resource/movie/film"
+      end
+    end
+  end
+  nil
+end
+
+def dbpedia_film_lookup(title)
+ 
+sparql = <<SPARQL
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+DESCRIBE * WHERE {
+?obj rdf:type <http://dbpedia.org/ontology/Film> .
+?obj foaf:name ?title FILTER regex(?title, "^#{title}$", "i" )
 }
 SPARQL
   uri = "http://dbpedia.org/sparql?query=#{CGI.escape(sparql)}"
-  puts uri
   response = HTTPClient.fetch(uri)
   collection = XMLParser.parse response
   return nil if collection.empty?

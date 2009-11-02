@@ -3,3 +3,4 @@ rsinger-curies --source gems.github.com
 nokogiri
 isbn-tools
 rdfobjects --version 0.6.6
+sru

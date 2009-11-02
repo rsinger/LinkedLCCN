@@ -5,6 +5,7 @@ require 'net/http'
 require 'enhanced_marc'
 require 'rdf_objects'
 require 'isbn/tools'
+require 'sru'
 include RDFObject
 
 configure do
@@ -240,6 +241,18 @@ def marc_common(resource, marc)
   if marc['767'] && marc['767']['t']
     resource.assert("[rda:parallelTitleProper]", marc['767']['t'].strip_trailing_punct)
   end  
+  
+  if marc['100']
+    if viaf = viaf_lookup(marc['100'])
+      resource.relate("[dcterms:creator]", viaf)
+    end
+  end
+  auths = marc.find_all {|f| f.tag == '700'}
+  auths.each do | auth |
+    if viaf = viaf_lookup(auth)
+      resource.relate("[dcterms:creator]", viaf)
+    end
+  end    
 end
 
 def get_lcsh(subject_string)
@@ -394,6 +407,34 @@ SPARQL
       next unless resource.is_a?(Resource)
       [*resource['[rdf:type]']].each do | type |
         return resource if type.uri == "http://dbpedia.org/ontology/Film"
+      end
+    end
+  end
+  nil
+end
+
+def viaf_lookup(name)
+  client = SRU::Client.new("http://viaf.org/search")
+  opts = {:maximumRecords=>5, :startRecord=>1, :recordSchema=>"http://www.w3.org/1999/02/22-rdf-syntax-ns#"}
+  name_values = []
+  name.each do | subfield |
+    name_values << subfield.value
+  end
+  results = client.search_retrieve "local.names all \"#{name_values.join(" ").strip_trailing_punct}\"", opts
+  results.each do | result |
+    rdf = result.root.elements['/searchRetrieveResponse/records/record/recordData/'].children
+    collection = Parser.parse(rdf.to_s)
+    resources = collection.find_by_predicate("[foaf:name]")
+    resources.each do | r |
+      break unless r.is_a?(Array)
+      r.each do | resource |
+        next unless resource.is_a?(Resource)
+        if results.number_of_records == 1
+          return resource
+        end
+        [*resource['[foaf:name]']].each do | name |
+          return resource if name == name_values.join(" ").strip_trailing_punct
+        end
       end
     end
   end

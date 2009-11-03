@@ -47,7 +47,7 @@ def to_rdfxml(resource)
 end
 
 def rdf_description_block(resource, depth)
-  rdf = "<rdf:Description rdf:about=\"#{resource.uri}\">"
+  rdf = "<rdf:Description rdf:about=\"#{CGI.escapeHTML(resource.uri)}\">"
   Curie.get_mappings.each_pair do |key, value|
     if resource.respond_to?(key.to_sym)
       resource.send(key.to_sym).each_pair do | predicate, objects |

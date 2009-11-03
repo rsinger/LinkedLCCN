@@ -115,6 +115,7 @@ def viaf_lookup(name)
   opts = {:maximumRecords=>5, :startRecord=>1, :recordSchema=>"http://www.w3.org/1999/02/22-rdf-syntax-ns#"}
   name_values = []
   name.each do | subfield |
+    next if subfield.code == 't'
     name_values << subfield.value
   end
   results = client.search_retrieve "local.names all \"#{name_values.join(" ").strip_trailing_punct}\"", opts
@@ -133,6 +134,66 @@ def viaf_lookup(name)
           return resource if name == name_values.join(" ").strip_trailing_punct
         end
       end
+    end
+  end
+  nil
+end
+
+def freebase_book_lookup(title, author)
+  fuzz_auth = author['a'].split(",")[0]
+  resources = Ken.all(:name=>title, :"author~="=>fuzz_auth, :type=>"/book/written_work")
+  matched_resource = nil
+  resources.each do | resource |
+    if resources.length == 1
+      matched_resource = resource
+      break
+    end
+  end
+  if matched_resource
+    r = Resource.new("http://rdf.freebase.com/ns/#{matched_resource.id.sub(/^\//,"").gsub(/\//,".")}")
+    return r
+  else
+    return nil
+  end
+end
+
+def freebase_journal_lookup(title, issn=nil)
+  resources = Ken.all(:name=>title, :ISSN=>issn, :type=>"/book/periodical")
+  matched_resource = nil
+  resources.each do | resource |
+    if resources.length == 1
+      matched_resource = resource
+      break
+    end
+  end
+  if matched_resource
+    r = Resource.new("http://rdf.freebase.com/ns/#{matched_resource.id.sub(/^\//,"").gsub(/\//,".")}")
+    return r
+  else
+    return nil
+  end
+end
+
+def dbpedia_journal_lookup(title, issn)
+ 
+sparql = <<SPARQL
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX dbpedia: <http://dbpedia.org/property/>
+DESCRIBE * WHERE {
+?obj dbpedia:issn ?issn FILTER regex(?issn, "#{issn}", "i") .
+?obj rdfs:label ?title FILTER regex(?title, "^#{title}$", "i" )
+}
+SPARQL
+  uri = "http://dbpedia.org/sparql?query=#{CGI.escape(sparql)}"
+  response = HTTPClient.fetch(uri)
+  collection = XMLParser.parse response
+  return nil if collection.empty?
+  resources = collection.find_by_predicate("http://dbpedia.org/property/issn")
+  resources.each do | r |
+    break unless r.is_a?(Array)
+    r.each do | resource |
+      next unless resource.is_a?(Resource)
+      return resource
     end
   end
   nil

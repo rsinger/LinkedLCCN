@@ -1,3 +1,4 @@
+require 'ken'
 def model_sound(marc, resource)
   resource.relate("[rdf:type]", "[mo:Recording]")
   upcs = marc.find_all {|f| f.tag == "024"}
@@ -56,6 +57,15 @@ def model_book(marc, resource)
   if ol = openlibrary_lookup(marc['010'].value.strip)
     resource.relate("[owl:sameAs]", "http://openlibrary.org#{ol.first['key']}")
   end
+  freebase = case
+  when marc['100'] then freebase_book_lookup(marc['245']['a'].strip_trailing_punct, marc['100'])
+  when marc['111'] then freebase_book_lookup(marc['245']['a'].strip_trailing_punct, marc['110'])
+  else nil
+  end
+  if freebase
+    resource.relate("[dcterms:isVersionOf]", freebase)
+  end
+      
 end
 
 def model_serial(marc, resource)
@@ -83,16 +93,21 @@ def model_serial(marc, resource)
     unless issn.empty?
       periodical = Resource.new("http://periodicals.dataincubator.org/issn/#{issn}") 
       begin
-        collection = periodical.describe
-      
-        if collection[periodical.uri].owl && collection[periodical.uri].owl['sameAs']
-          [*collection[periodical.uri].owl['sameAs']].each do | same_as |
+        periodical.describe
+        if periodical.owl && periodical.owl['sameAs']
+          [*periodical.owl['sameAs']].each do | same_as |
             resource.assert("[owl:sameAs]", same_as)
           end
         end
       rescue RuntimeError
       end
     end
+    if freebase = freebase_journal_lookup(marc['245']['a'].strip_trailing_punct, issn)
+      resource.assert("[owl:sameAs]", freebase)
+    end
+    if dbpedia = dbpedia_journal_lookup(marc['245']['a'].strip_trailing_punct, issn)
+      resource.assert("[owl:sameAs]", dbpedia)
+    end    
   end
 end
 
@@ -156,11 +171,13 @@ def marc_common(resource, marc)
         resource.relate("[owl:sameAs]", library_thing)
       rescue RuntimeError
       end      
-    end     
+    end   
+    resource.relate("[dcterms:isVersionOf]", "http://xisbn.worldcat.org/webservices/xid/isbn/#{isbn}?method=getMetadata&format=xml&fl=*")   
   end
   
   if marc['022'] && marc['022']['a']
     resource.assert("[bibo:issn]", marc['022']['a'].strip_trailing_punct)
+    resource.relate("[dcterms:isVersionOf]", "http://xissn.worldcat.org/webservices/xid/issn/#{marc['022']['a'].strip_trailing_punct}?method=getForms&format=xml")
   end  
   
   subjects = marc.find_all {|field| field.tag =~ /^6../}
@@ -210,7 +227,7 @@ end
 def to_rdf(marc)
   id = marc['010'].value.strip
   resource = Resource.new("http://lccn.heroku.com/#{id}#i")
-  resource.relate("[foaf:isPrimaryTopicOf]", "http://lccn.loc.gov/#{id}")  
+  resource.relate("[foaf:isPrimaryTopicOf]", "http://lccn.loc.gov/#{id}") 
   resource.assert("[bibo:lccn]", id)
   case marc.class.to_s
   when "MARC::SoundRecord" then model_sound(marc, resource)

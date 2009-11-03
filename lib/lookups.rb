@@ -212,7 +212,7 @@ def loc_creator_search(creator)
     puts results.doc.to_s
     results.doc.each_element('//datafield[@tag="010"]/subfield[@code="a"]') do | lccn_tag |
       lccn = lccn_tag.get_text.value.strip
-      creator.relate("[foaf:made]", "http://lccn.heroku.com/#{lccn}")      
+      creator.relate("[foaf:made]", "http://lccn.heroku.com/#{CGI.escape(lccn)}")      
     end
   end
 end

@@ -213,21 +213,23 @@ def marc_common(resource, marc)
   
   if marc['100']
     if viaf = viaf_lookup(marc['100'])
-      resource.relate("[dcterms:creator]", viaf)
+      loc_creator_search(viaf)
+      resource.relate("[dcterms:creator]", viaf)      
     end
   end
   auths = marc.find_all {|f| f.tag == '700'}
   auths.each do | auth |
     if viaf = viaf_lookup(auth)
-      resource.relate("[dcterms:creator]", viaf)
+      loc_creator_search(viaf)
+      resource.relate("[dcterms:creator]", viaf)      
     end
   end    
 end
 
 def to_rdf(marc)
   id = marc['010'].value.strip
-  resource = Resource.new("http://lccn.heroku.com/#{id}#i")
-  resource.relate("[foaf:isPrimaryTopicOf]", "http://lccn.loc.gov/#{id}") 
+  resource = Resource.new("http://lccn.heroku.com/#{CGI.escape(id)}#i")
+  resource.relate("[foaf:isPrimaryTopicOf]", "http://lccn.loc.gov/#{CGI.escape(id)}") 
   resource.assert("[bibo:lccn]", id)
   case marc.class.to_s
   when "MARC::SoundRecord" then model_sound(marc, resource)

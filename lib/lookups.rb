@@ -48,7 +48,7 @@ SPARQL
 end
 
 def openlibrary_lookup(lccn)
-  uri = URI.parse "http://openlibrary.org/query.json?type=/type/edition&lccn=#{lccn}&*="
+  uri = URI.parse "http://openlibrary.org/query.json?type=/type/edition&lccn=#{CGI.escape(lccn)}&*="
   response = JSON.parse(Net::HTTP.get(uri))
   return nil if response.empty?
   return response
@@ -199,8 +199,26 @@ SPARQL
   nil
 end
 
+def loc_creator_search(creator)
+  client = SRU::Client.new("http://z3950.loc.gov:7090/Voyager")
+  client.version = "1.1"
+  queries = []
+  [*creator.foaf['name']].each do | name |
+    queries << "(dc.creator all \"#{name}\")"
+  end
+  opts = {:startRecord=>1, :maximumRecords=>50, :recordSchema=>'marcxml'}
+  queries.each do | slice |
+    results = client.search_retrieve(slice, opts)
+    puts results.doc.to_s
+    results.doc.each_element('//datafield[@tag="010"]/subfield[@code="a"]') do | lccn_tag |
+      lccn = lccn_tag.get_text.value.strip
+      creator.relate("[foaf:made]", "http://lccn.heroku.com/#{lccn}")      
+    end
+  end
+end
+
 def get_marc(lccn)
-  uri = URI.parse "http://lccn.loc.gov/#{lccn}/marcxml"
+  uri = URI.parse "http://lccn.loc.gov/#{lccn.gsub(/\s/,"%20")}/marcxml"
   req = Net::HTTP::Get.new(uri.path)
   res = Net::HTTP.start(uri.host, uri.port) {|http|
     http.request(req)

@@ -223,7 +223,19 @@ def marc_common(resource, marc)
       loc_creator_search(viaf)
       resource.relate("[dcterms:creator]", viaf)      
     end
-  end    
+  end   
+  
+  links = marc.find_all{|f| f.tag == '856'} 
+  links.each do | link |
+    if link.indicator2 == "1"
+      resource.assert("[bibo:uri]", link['u']) if link['u']
+    end
+  end
+  marc.languages.each do | lang |
+    unless lang.two_code.empty?
+      resource.relate("[dcterms:language]", "http://www.lingvoj.org/lang/#{lang.two_code}")
+    end
+  end
 end
 
 def to_rdf(marc)

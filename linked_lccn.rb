@@ -24,7 +24,7 @@ get '/:id' do
 end
 
 get '/subjects/:label' do
-  concept = Resource.new("http://lccn.heroku.com/subjects/#{CGI.escape(params[:label])}")
+  concept = Resource.new("http://purl.org/NET/lccn/subjects/#{CGI.escape(params[:label])}")
   concept.relate("[rdf:type]", "[skos:Concept]")
   concept.assert("[skos:prefLabel]", params[:label])
   content_type 'application/rdf+xml', :charset => 'utf-8'  

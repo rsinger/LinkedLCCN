@@ -194,7 +194,7 @@ def marc_common(resource, marc)
       end
     end
     unless authority
-      subj = Resource.new("http://lccn.heroku.com/subjects/#{CGI.escape(literal)}")
+      subj = Resource.new("http://purl.org/NET/lccn/subjects/#{CGI.escape(literal)}")
       subj.relate("[rdf:type]", "[skos:Concept]")
       subj.assert("[skos:prefLabel]", literal)
       resource.relate("[dcterms:subject]", subj)
@@ -240,7 +240,7 @@ end
 
 def to_rdf(marc)
   id = marc['010'].value.strip
-  resource = Resource.new("http://lccn.heroku.com/#{CGI.escape(id)}#i")
+  resource = Resource.new("http://purl.org/NET/lccn/#{CGI.escape(id)}#i")
   resource.relate("[foaf:isPrimaryTopicOf]", "http://lccn.loc.gov/#{CGI.escape(id)}") 
   resource.assert("[bibo:lccn]", id)
   case marc.class.to_s

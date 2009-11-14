@@ -2,27 +2,34 @@ require 'ken'
 def model_sound(marc, resource)
   resource.relate("[rdf:type]", "[mo:Recording]")
   upcs = marc.find_all {|f| f.tag == "024"}
-  upcs.each do | upc |
-    next unless upc.indicator1 == "1"
-    resource.assert("[mo:barcode]", upc['a'])
-    mbrainz = dbtune_lookup(upc['a'])
-    if mbrainz
-      resource.relate("[owl:sameAs]", mbrainz[:release]) if mbrainz[:release]
-      if mbrainz[:record] && mbrainz[:record].foaf["maker"]
-        resource.assert("[dcterms:creator]", mbrainz[:record].foaf["maker"])
-        if mbrainz[:record].mo["track"]
-          [*mbrainz[:record].mo["track"]].each do | track |            
-            resource.assert("[mo:track]", track)
+  if upcs
+  
+    upcs.each do | upc |
+      next unless upc.indicator1 == "1"
+      resource.assert("[mo:barcode]", upc['a'])
+      mbrainz = dbtune_lookup(upc['a'])
+      if mbrainz
+        resource.relate("[owl:sameAs]", mbrainz[:release]) if mbrainz[:release]
+        if mbrainz[:record] && mbrainz[:record].foaf["maker"]
+          resource.assert("[dcterms:creator]", mbrainz[:record].foaf["maker"])
+          if mbrainz[:record].mo["track"]
+            [*mbrainz[:record].mo["track"]].each do | track |            
+              resource.assert("[mo:track]", track)
+            end
           end
-        end
-        if mbrainz[:record].owl['sameAs']
-          [*mbrainz[:record].owl['sameAs']].each do | sames |
-            if sames.uri =~ /^http:\/\/dbpedia\.org\//
-              resource.assert("[rdfs:seeAlso]", sames)
+          if mbrainz[:record].owl['sameAs']
+            [*mbrainz[:record].owl['sameAs']].each do | sames |
+              if sames.uri =~ /^http:\/\/dbpedia\.org\//
+                resource.assert("[rdfs:seeAlso]", sames)
+              end
             end
           end
         end
       end
+    end
+  else
+    cat_nums = marc.find_all {|f| f.tag == "028"}
+    cat_nums.each do | cat_num |
     end
   end
 end

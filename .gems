@@ -1,4 +1,4 @@
-enhanced_marc
+enhanced_marc --version 0.1.6
 curies
 nokogiri
 isbn-tools

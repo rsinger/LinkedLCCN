@@ -1,7 +1,7 @@
-enhanced_marc --version 0.1.6
-rsinger-curies --source gems.github.com
+enhanced_marc
+curies
 nokogiri
 isbn-tools
-rdfobjects --version 0.6.6
+rdfobjects
 sru
 ken

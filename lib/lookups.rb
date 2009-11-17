@@ -47,6 +47,33 @@ SPARQL
   resources
 end
 
+def dbtune_catalog_number_lookup(label, number)
+  uri = URI.parse("http://dbtune.org/musicbrainz/sparql")
+  sparql = <<SPARQL
+PREFIX mo: <http://purl.org/ontology/mo/>
+PREFIX vocab: <http://dbtune.org/musicbrainz/resource/vocab/>
+DESCRIBE ?s WHERE {
+?label vocab:alias ?labelname .
+?s vocab:release_catno "#{number}" .
+?s mo:release_label ?label .
+FILTER regex(?labelname, "#{label}", "i")
+}
+SPARQL
+  uri.query = "query=#{CGI.escape(sparql)}"
+  response = Net::HTTP.get uri
+  resources = {:record=>nil, :release=>nil}
+  collection = Parser.parse response
+  return nil if collection.empty?
+  release = collection.find_by_predicate_and_object("http://dbtune.org/musicbrainz/resource/vocab/release_catno", number)
+  resources[:release] = release.values if release
+  records = collection.find_by_predicate("[mo:release]")
+  records.values.each do | record |
+    record.describe
+  end
+  resources[:record] = records.values
+  resources
+end
+
 def openlibrary_lookup(lccn)
   uri = URI.parse "http://openlibrary.org/query.json?type=/type/edition&lccn=#{CGI.escape(lccn)}&*="
   response = JSON.parse(Net::HTTP.get(uri))
@@ -133,7 +160,7 @@ def viaf_lookup(name)
   opts = {:maximumRecords=>5, :startRecord=>1, :recordSchema=>"http://www.w3.org/1999/02/22-rdf-syntax-ns#"}
   name_values = []
   name.each do | subfield |
-    next if subfield.code == 't'
+    next if (subfield.code == 't') or (subfield.code == '4')
     name_values << subfield.value
   end
   results = client.search_retrieve "local.names all \"#{name_values.join(" ").strip_trailing_punct}\"", opts
@@ -156,6 +183,7 @@ def viaf_lookup(name)
   end
   nil
 end
+
 
 def freebase_book_lookup(title, author)
   fuzz_auth = author['a'].split(",")[0]
@@ -227,10 +255,9 @@ def loc_creator_search(creator)
   opts = {:startRecord=>1, :maximumRecords=>50, :recordSchema=>'marcxml'}
   queries.each do | slice |
     results = client.search_retrieve(slice, opts)
-    puts results.doc.to_s
     results.doc.each_element('//datafield[@tag="010"]/subfield[@code="a"]') do | lccn_tag |
       lccn = lccn_tag.get_text.value.strip
-      creator.relate("[foaf:made]", "http://lccn.heroku.com/#{CGI.escape(lccn)}")      
+      creator.relate("[foaf:made]", "http://purl.org/NET/lccn/#{CGI.escape(lccn)}#i")      
     end
   end
 end

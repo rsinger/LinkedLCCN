@@ -2,21 +2,35 @@ require 'ken'
 def model_sound(marc, resource)
   resource.relate("[rdf:type]", "[mo:Recording]")
   upcs = marc.find_all {|f| f.tag == "024"}
-  upcs.each do | upc |
-    next unless upc.indicator1 == "1"
-    resource.assert("[mo:barcode]", upc['a'])
-    mbrainz = dbtune_lookup(upc['a'])
-    if mbrainz
-      resource.relate("[owl:sameAs]", mbrainz[:release]) if mbrainz[:release]
-      if mbrainz[:record] && mbrainz[:record].foaf["maker"]
-        resource.assert("[dcterms:creator]", mbrainz[:record].foaf["maker"])
-        if mbrainz[:record].mo["track"]
-          [*mbrainz[:record].mo["track"]].each do | track |            
+  mbrainz = {}
+  unless upcs.empty?
+    upcs.each do | upc |
+      next unless upc.indicator1 == "1"
+      resource.assert("[mo:barcode]", upc['a'])
+      mbrainz = dbtune_lookup(upc['a'])
+    end
+  else
+    cat_nums = marc.find_all {|f| f.tag == "028"}
+    cat_nums.each do | cat_num |
+      mbrainz = dbtune_catalog_number_lookup(cat_num['b'], cat_num['a'])
+    end
+  end
+  unless mbrainz.empty?
+    if mbrainz[:release]
+      [*mbrainz[:release]].each do | release |
+        resource.relate("[owl:sameAs]", release)
+      end
+    end
+    if mbrainz[:record]
+      [*mbrainz[:record]].each do | record |
+        resource.assert("[dcterms:creator]", record.foaf["maker"]) if record.foaf["maker"]
+        if record.mo["track"]
+          [*record.mo["track"]].each do | track |
             resource.assert("[mo:track]", track)
           end
         end
-        if mbrainz[:record].owl['sameAs']
-          [*mbrainz[:record].owl['sameAs']].each do | sames |
+        if record.owl['sameAs']
+          [*record.owl['sameAs']].each do | sames |
             if sames.uri =~ /^http:\/\/dbpedia\.org\//
               resource.assert("[rdfs:seeAlso]", sames)
             end
@@ -25,6 +39,7 @@ def model_sound(marc, resource)
       end
     end
   end
+  
 end
 
 def model_book(marc, resource)
@@ -232,8 +247,18 @@ def marc_common(resource, marc)
     end
   end
   marc.languages.each do | lang |
-    unless lang.two_code.empty?
-      resource.relate("[dcterms:language]", "http://www.lingvoj.org/lang/#{lang.two_code}")
+    resource.relate("[dcterms:language]", "http://purl.org/NET/marccodes/languages/#{lang.three_code}#lang")
+  end
+  
+  if country = marc.publication_country
+    resource.relate("[rda:placeOfPublication]", "http://purl.org/NET/marccodes/countries/#{country}#location")
+  end
+  
+  gacs = marc.find_all{|f| f.tag == '043'}
+  gacs.each do | gac |
+    l = gac.find_all{|f| f.code == 'a'}
+    l.each do | subfield |
+      resource.relate("[foaf:topic]","http://purl.org/NET/marccodes/gacs/#{subfield.value.sub(/-*$/,"")}#location")
     end
   end
 end

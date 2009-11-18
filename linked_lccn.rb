@@ -20,6 +20,7 @@ get '/:id' do
   not_found if marc.nil?
   rdf = to_rdf(marc)
   content_type 'application/rdf+xml', :charset => 'utf-8'
+  response.headers['Cache-Control'] = 'public, max-age=21600'  
   to_rdfxml(rdf)
 end
 

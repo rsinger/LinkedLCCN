@@ -21,7 +21,8 @@ get '/:id' do
   rdf = to_rdf(marc)
   content_type 'application/rdf+xml', :charset => 'utf-8'
   headers['Cache-Control'] = 'public, max-age=21600'  
-  to_rdfxml(rdf)
+  #to_rdfxml(rdf)
+  rdf.to_xml
 end
 
 get '/subjects/:label' do

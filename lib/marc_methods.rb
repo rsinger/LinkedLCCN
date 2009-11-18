@@ -15,7 +15,7 @@ def model_sound(marc, resource)
       mbrainz = dbtune_catalog_number_lookup(cat_num['b'], cat_num['a'])
     end
   end
-  unless mbrainz.empty?
+  unless mbrainz.nil? or mbrainz.empty?
     if mbrainz[:release]
       [*mbrainz[:release]].each do | release |
         resource.relate("[owl:sameAs]", release)
@@ -127,6 +127,33 @@ def model_serial(marc, resource)
 end
 
 def model_map(marc, resource)
+  cart = marc.find_all {|f| f.tag == "034"}
+  cart.each do | c |
+    if c['d'] and c['e'] and c['f'] and c['g']
+      west = coordinate_to_decimal(c['d'])
+      east = coordinate_to_decimal(c['e'])      
+      north = coordinate_to_decimal(c['f'])
+      south = coordinate_to_decimal(c['g'])
+      resource.assert("http://www.georss.org/georss#box", "#{south} #{west} #{north} #{east}")
+    end
+  end
+end
+
+def coordinate_to_decimal(coordinate)
+  return coordinate if coordinate =~ /\-?[0-9]{3}\.[0-9]*/
+  decimal = nil
+  if coordinate !~ /\./
+    decimal = coordinate.sub(/^[SW]/,"-").sub(/^[NE]/,"")
+    decimal.sub!(/([0-9]{3})/,'\1.')
+  end
+  if decimal && decimal =~ /\.[0-9]{4}/
+    minsec = decimal.match(/\.([0-9]{2})([0-9]{2})/)
+    minute = (minsec[1].to_i/60)
+    second = (minsec[2].to_i/3600)
+    (degree, mmss) = decimal.split(/\./)
+    decimal = "#{degree}.#{minute}#{second}"
+  end
+  return decimal
 end
 
 def model_visual(marc, resource)

@@ -127,6 +127,7 @@ def model_serial(marc, resource)
 end
 
 def model_map(marc, resource)
+  resource.relate("[rdf:type]", "[bibo:Map]")
   cart = marc.find_all {|f| f.tag == "034"}
   cart.each do | c |
     if c['d'] and c['e'] and c['f'] and c['g']
@@ -274,6 +275,7 @@ def marc_common(resource, marc)
     end
   end
   marc.languages.each do | lang |
+    next unless lang
     resource.relate("[dcterms:language]", "http://purl.org/NET/marccodes/languages/#{lang.three_code}#lang")
   end
   

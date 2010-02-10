@@ -3,5 +3,5 @@ curies
 nokogiri
 isbn-tools
 rdfobjects
-sru
+sru --version 0.0.7
 ken

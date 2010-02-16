@@ -34,6 +34,7 @@ end
 get '/people/:id' do
   person = viaf_by_id(params[:id])
   content_type 'application/rdf+xml', :charset => 'utf-8'  
+  loc_creator_search(person)
   person.to_xml(2)  
 end
 

@@ -156,8 +156,8 @@ SPARQL
 end
 
 def viaf_lookup(name)
-  client = SRU::Client.new("http://viaf.org/search")
-  opts = {:maximumRecords=>5, :startRecord=>1, :recordSchema=>"http://www.w3.org/1999/02/22-rdf-syntax-ns#"}
+  client = SRU::Client.new("http://viaf.org/search", :parser=>"libxml")
+  opts = {:maximumRecords=>5, :startRecord=>1, :recordSchema=>"VIAF"}
   name_values = []
   name.each do | subfield |
     next if (subfield.code == 't') or (subfield.code == '4')
@@ -165,18 +165,16 @@ def viaf_lookup(name)
   end
   results = client.search_retrieve "local.names all \"#{name_values.join(" ").strip_trailing_punct}\"", opts
   results.each do | result |
-    rdf = result.root.elements['/searchRetrieveResponse/records/record/recordData/'].children
-    collection = Parser.parse(rdf.to_s)
-    resources = collection.find_by_predicate("[foaf:name]")
-    resources.each do | r |
-      break unless r.is_a?(Array)
-      r.each do | resource |
-        next unless resource.is_a?(Resource)
-        if results.number_of_records == 1
+    result.find('//v:VIAFCluster/v:mainHeadings/v:data/v:text', 'v:http://viaf.org/Domain/Cluster/terms#').each do | main_heading |
+      if main_heading.inner_xml == name_values.join(" ").strip_trailing_punct
+        result.find('//v:VIAFCluster/v:viafID', 'v:http://viaf.org/Domain/Cluster/terms#').each do | viaf_id |
+          uri = "http://viaf.org/viaf/#{viaf_id.inner_xml}.rwo"
+          resource = Resource.new(uri)
+          resource.describe
+          unless resource.foaf && resource.foaf['name']
+            resource.assert("[foaf:name]", name_values.join(" ").strip_trailing_punct)
+          end
           return resource
-        end
-        [*resource['[foaf:name]']].each do | name |
-          return resource if name == name_values.join(" ").strip_trailing_punct
         end
       end
     end

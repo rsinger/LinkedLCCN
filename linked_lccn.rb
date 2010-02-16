@@ -22,7 +22,7 @@ get '/:id' do
   content_type 'application/rdf+xml', :charset => 'utf-8'
   headers['Cache-Control'] = 'public, max-age=21600'  
   #to_rdfxml(rdf)
-  rdf.to_xml
+  rdf.to_xml(2)
 end
 
 get '/subjects/:label' do
@@ -30,7 +30,7 @@ get '/subjects/:label' do
   concept.relate("[rdf:type]", "[skos:Concept]")
   concept.assert("[skos:prefLabel]", params[:label])
   content_type 'application/rdf+xml', :charset => 'utf-8'  
-  to_rdfxml(concept)
+  concept.to_xml(2)
 end
 
 def to_rdfxml(resource)

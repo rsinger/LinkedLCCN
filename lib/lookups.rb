@@ -413,7 +413,7 @@ def loc_creator_search(creator)
   queries.each do | slice |
     results = client.search_retrieve(slice, opts)
     results.doc.each_element('//datafield[@tag="010"]/subfield[@code="a"]') do | lccn_tag |
-      lccn = lccn_tag.get_text.value.strip
+      lccn = lccn_tag.get_text.value.strip.gsub(/\s/,"")
       creator.relate("[foaf:made]", "http://purl.org/NET/lccn/#{CGI.escape(lccn)}#i")      
     end
   end

@@ -326,12 +326,14 @@ def viaf_lookup(name, subject=false)
           resource.assert("[foaf:name]", name_values.join(" ").strip_trailing_punct)    
           resource.relate("[umbel:isAbout]", concept)
           # Clean up viaf's wonky dbpedia associations.
-          [*concept.foaf['page']].each do | page |
-            u = URI.parse page.uri
-            next unless u.host == "dbpedia.org"
-            u.path.sub!(/^\/page\//,"/resource/")
-            u.path.sub!(/Wikipedia\:WikiProject_/,"")
-            resource.relate("[owl:sameAs]", u.to_s)
+          if concept.foaf
+            [*concept.foaf['page']].each do | page |
+              u = URI.parse page.uri
+              next unless u.host == "dbpedia.org"
+              u.path.sub!(/^\/page\//,"/resource/")
+              u.path.sub!(/Wikipedia\:WikiProject_/,"")
+              resource.relate("[owl:sameAs]", u.to_s)
+            end
           end
           return resource
         end
@@ -411,6 +413,8 @@ def loc_creator_search(creator)
   end
   opts = {:startRecord=>1, :maximumRecords=>50, :recordSchema=>'marcxml'}
   queries.each do | slice |
+    i = 0
+    
     results = client.search_retrieve(slice, opts)
     results.doc.each_element('//datafield[@tag="010"]/subfield[@code="a"]') do | lccn_tag |
       lccn = lccn_tag.get_text.value.strip.gsub(/\s/,"")

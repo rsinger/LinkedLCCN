@@ -18,20 +18,20 @@ def model_sound(marc, resource)
       mbrainz_params[:barcode] ||=[]
       mbrainz_params[:barcode] << upc['a']
     end
-  else
-    cat_nums = marc.find_all {|f| f.tag == "028"}
-    cat_nums.each do | cat_num |
-      if cat_num['a']
-        resource.assert("[mo:catalogue_number]", cat_num['a'])
-        mbrainz_params[:catno] ||=[]
-        mbrainz_params[:catno] << cat_num['a']
-      end
-      if cat_num['b']
-        mbrainz_params[:label] ||=[]
-        mbrainz_params[:label] << cat_num['b']
-      end
+  end
+  cat_nums = marc.find_all {|f| f.tag == "028"}
+  cat_nums.each do | cat_num |
+    if cat_num['a']
+      resource.assert("[mo:catalogue_number]", cat_num['a'])
+      mbrainz_params[:catno] ||=[]
+      mbrainz_params[:catno] << cat_num['a']
+    end
+    if cat_num['b']
+      mbrainz_params[:label] ||=[]
+      mbrainz_params[:label] << cat_num['b']
     end
   end
+
   if mbrainz = musicbrainz_lookup(mbrainz_params)
     if mbrainz[:release]
       mbrainz[:release].each do | r |

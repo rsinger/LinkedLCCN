@@ -367,7 +367,7 @@ def relator_to_rdf(field)
 end
 
 def to_rdf(marc)
-  id = marc['010'].value.strip
+  id = marc['010'].value.strip.gsub(/\s/,'')
   resource = Resource.new("http://purl.org/NET/lccn/#{CGI.escape(id)}#i")
   resource.relate("[foaf:isPrimaryTopicOf]", "http://lccn.loc.gov/#{CGI.escape(id)}") 
   resource.assert("[bibo:lccn]", id)

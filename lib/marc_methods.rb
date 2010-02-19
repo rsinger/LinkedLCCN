@@ -323,7 +323,7 @@ def marc_common(resource, marc)
     resource.relate("[dcterms:language]", "http://purl.org/NET/marccodes/languages/#{lang.three_code}#lang")
   end
   
-  if country = marc.publication_country && marc.publication_country ~= /\|/
+  if country = marc.publication_country && marc.publication_country !~ /\|/
     resource.relate("[rda:placeOfPublication]", "http://purl.org/NET/marccodes/countries/#{country}#location")
   end
   

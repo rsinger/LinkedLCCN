@@ -193,8 +193,12 @@ DESCRIBE * WHERE {
 }
 SPARQL
   uri = "http://data.linkedmdb.org/sparql?query=#{CGI.escape(sparql)}"
-  response = HTTPClient.fetch(uri)
-  collection = XMLParser.parse response[:content]
+  begin
+    response = RDFObject::HTTPClient.fetch(uri)
+    collection = XMLParser.parse response[:content]
+  rescue 
+    return nil
+  end
   return nil if collection.empty?
   resources = collection.find_by_predicate("[rdf:type]")
   resources.each do | r |
@@ -238,7 +242,7 @@ DESCRIBE * WHERE {
 }
 SPARQL
   uri = "http://dbpedia.org/sparql?query=#{CGI.escape(sparql)}"
-  response = HTTPClient.fetch(uri)
+  response = RDFObject::HTTPClient.fetch(uri)
   collection = XMLParser.parse response[:content]
   return nil if collection.empty?
   resources = collection.find_by_predicate("[rdf:type]")
@@ -390,7 +394,7 @@ DESCRIBE * WHERE {
 }
 SPARQL
   uri = "http://dbpedia.org/sparql?query=#{CGI.escape(sparql)}"
-  response = HTTPClient.fetch(uri)
+  response = RDFObject::HTTPClient.fetch(uri)
   collection = XMLParser.parse response[:content]
   return nil if collection.empty?
   resources = collection.find_by_predicate("http://dbpedia.org/property/issn")
@@ -414,11 +418,15 @@ def loc_creator_search(creator)
   opts = {:startRecord=>1, :maximumRecords=>50, :recordSchema=>'marcxml'}
   queries.each do | slice |
     i = 0
-    
-    results = client.search_retrieve(slice, opts)
-    results.doc.each_element('//datafield[@tag="010"]/subfield[@code="a"]') do | lccn_tag |
-      lccn = lccn_tag.get_text.value.strip.gsub(/\s/,"")
-      creator.relate("[foaf:made]", "http://purl.org/NET/lccn/#{CGI.escape(lccn)}#i")      
+    total = 50
+    while i < total
+      results = client.search_retrieve(slice, opts)
+      results.doc.each_element('//datafield[@tag="010"]/subfield[@code="a"]') do | lccn_tag |
+        lccn = lccn_tag.get_text.value.strip.gsub(/\s/,"")
+        creator.relate("[foaf:made]", "http://purl.org/NET/lccn/#{CGI.escape(lccn)}#i")      
+      end
+      total = results.number_of_records
+      i += 50
     end
   end
 end

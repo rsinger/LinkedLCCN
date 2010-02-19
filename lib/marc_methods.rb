@@ -323,7 +323,7 @@ def marc_common(resource, marc)
     resource.relate("[dcterms:language]", "http://purl.org/NET/marccodes/languages/#{lang.three_code}#lang")
   end
   
-  if country = marc.publication_country
+  if country = marc.publication_country && marc.publication_country ~= /\|/
     resource.relate("[rda:placeOfPublication]", "http://purl.org/NET/marccodes/countries/#{country}#location")
   end
   
@@ -367,7 +367,7 @@ def relator_to_rdf(field)
 end
 
 def to_rdf(marc)
-  id = marc['010'].value.strip.gsub(/\s/,'')
+  id = marc['010']['a'].value.strip.gsub(/\s/,'')
   resource = Resource.new("http://purl.org/NET/lccn/#{CGI.escape(id)}#i")
   resource.relate("[foaf:isPrimaryTopicOf]", "http://lccn.loc.gov/#{CGI.escape(id)}") 
   resource.assert("[bibo:lccn]", id)

@@ -1,8 +1,11 @@
+$:.unshift *Dir[File.dirname(__FILE__) + "/vendor/*/lib"]
 require 'rubygems'
 require 'sinatra'
+require 'logger'
+#require 'active_record'
+#require 'delayed_job'
 load 'lib/util.rb'
-load 'lib/lookups.rb'
-load 'lib/marc_methods.rb'
+RunLater.run_now = true
 include RDFObject
 
 configure do
@@ -19,6 +22,12 @@ configure do
   STORE = Pho::Store.new(ENV['PLATFORM_STORE'] || config['store']['uri'], 
     ENV['PLATFORM_USERNAME'] || config['store']['username'],
     ENV['PLATFORM_PASSWORD'] || config['store']['password'])
+  #dbconf = config['database']
+  #ActiveRecord::Base.establish_connection(dbconf) 
+  #ActiveRecord::Base.logger = Logger.new(File.open('log/database.log', 'a')) 
+  #ActiveRecord::Migrator.up('db/migrate') 
+  LOGGER = Logger.new(STDOUT)
+
 end
 get '/:id' do
   resource = fetch_resource("http://purl.org/NET/lccn/#{params[:id]}#i")
@@ -45,6 +54,24 @@ end
 get '/missing/relators' do
   content_type 'application/json', :charset => 'utf-8'
   RELATORS[:missing].to_json
+end
+
+get '/test/delay' do
+  run_later do
+    sleep(10)
+    puts "Awake now"
+  end
+  "OK"
+end
+
+get '/jobs/all' do
+  out = ""
+  Delayed::Job.find(:all).each do | job |
+    out << "#{job.handler.inspect}\n"
+    out << "\n\nAttempts:  #{job.attempts}\n"
+    out << "\nLast Error:  #{job.last_error}"
+  end
+  out
 end
 
 not_found do

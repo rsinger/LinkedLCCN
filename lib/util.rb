@@ -3,10 +3,13 @@ require 'net/http'
 require 'enhanced_marc'
 require 'rdf_objects'
 require 'isbn/tools'
-require 'rbrainz'
 require 'sru'
 require 'yaml'
 require 'pho'
+require 'lib/run_later'
+require 'lib/linked_lccn'
+
+MARC::XMLReader.nokogiri!
 
 class String
   def slug
@@ -34,15 +37,25 @@ def fetch_resource(uri)
     resource = augmented_collection[uri]
     resource.rss.delete("title") if resource.rss && resource.rss["title"] = "Item"
     resource.rss.delete("link") if resource.rss && resource.rss["link"] = uri
+    [*resource.rdf['type']].delete("http://purl.org/rss/1.0/item") if resource.rdf && resource.rdf['type']
   elsif uri =~ /\/people\//
-    resource = viaf_by_id(params[:id])
-    loc_creator_search(resource)
-    STORE.store_data(resource.to_xml(2))    
+    resource = LinkedLCCN::VIAF.lookup_by_lccn(params[:id])
+    #status(206)
+    run_later do
+      LinkedLCCN::LibraryOfCongress.creator_search(resource)
+      STORE.store_data(resource.to_xml(2))    
+    end
   else
-    marc = get_marc(params["id"])
-    not_found if marc.nil?
-    resource = to_rdf(marc)
-    STORE.store_data(resource.to_xml(2))
+    lccn = LinkedLCCN::LCCN.new(params["id"])
+    lccn.get_marc
+    not_found if lccn.marc.nil?
+    lccn.basic_rdf
+    resource = lccn.graph
+    #status(206)
+    run_later do
+      lccn.advanced_rdf
+      STORE.store_data(lccn.graph.to_xml(2))
+    end
   end
   resource
 end
@@ -54,10 +67,21 @@ def fetch_from_platform(uri)
   false
 end
 
+class AdvancedEnrichGraphJob < Struct.new(:lccn)
+  def perform
+    puts lccn.graph.inspect
+    lccn.advanced_rdf
+    puts "Ok, the graph built a bit"
+    puts lccn.graph.to_xml(2)
+    res = STORE.store_data(lccn.graph.to_xml(2))
+    puts res.inspect
+  end
+end
+
 class RDFObject::Resource
   def describe
     response = STORE.describe(self.uri)
-    local_collection = Parser.parse(response.body.content, :format=>"rdfxml")
+    local_collection = RDFObject::Parser.parse(response.body.content, :format=>"rdfxml")
     unless local_collection && local_collection[self.uri]
       response = RDFObject::HTTPClient.fetch(self.uri)
       local_collection = RDFObject::Parser.parse(response[:content], {:base_uri=>response[:uri]})
@@ -121,3 +145,4 @@ class RDFObject::Resource
     [namespaces, rdf]
   end   
 end
+

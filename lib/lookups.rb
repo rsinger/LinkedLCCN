@@ -415,11 +415,12 @@ def loc_creator_search(creator)
   [*creator.foaf['name']].each do | name |
     queries << "(dc.creator all \"#{name}\")"
   end
-  opts = {:startRecord=>1, :maximumRecords=>50, :recordSchema=>'marcxml'}
+  opts = {:maximumRecords=>50, :recordSchema=>'marcxml'}
   queries.each do | slice |
     i = 0
     total = 50
     while i < total
+      opts[:startRecord] = i+1
       results = client.search_retrieve(slice, opts)
       results.doc.each_element('//datafield[@tag="010"]/subfield[@code="a"]') do | lccn_tag |
         lccn = lccn_tag.get_text.value.strip.gsub(/\s/,"")

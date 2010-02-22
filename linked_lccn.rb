@@ -26,7 +26,7 @@ configure do
   #ActiveRecord::Base.establish_connection(dbconf) 
   #ActiveRecord::Base.logger = Logger.new(File.open('log/database.log', 'a')) 
   #ActiveRecord::Migrator.up('db/migrate') 
-  LOGGER = Logger.new(STDOUT)
+  #LOGGER = Logger.new(STDOUT)
 
 end
 get '/:id' do

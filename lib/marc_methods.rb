@@ -60,6 +60,7 @@ module LinkedLCCN
 
   module BookResource
     def model_resource(marc, resource)
+
       if marc.is_conference?
         resource.relate("[rdf:type]","[bibo:Proceedings]")
       elsif marc.is_manuscript?
@@ -81,14 +82,17 @@ module LinkedLCCN
       else
         resource.relate("[rdf:type]", "[bibo:Book]")
       end
+
       if marc.nature_of_contents
         marc.nature_of_contents(true).each do | genre |        
           resource.assert("[dcterms:type]", genre)
         end
       end
+
       if ol = LinkedLCCN::OpenLibrary.lookup(marc['010'].value.strip)
         resource.relate("[owl:sameAs]", "http://openlibrary.org#{ol.first['key']}")
       end
+
       freebase = case
       when marc['100'] then LinkedLCCN::Freebase.book_lookup(marc['245']['a'].strip_trailing_punct, marc['100'])
       when marc['111'] then LinkedLCCN::Freebase.book_lookup(marc['245']['a'].strip_trailing_punct, marc['110'])
@@ -96,8 +100,7 @@ module LinkedLCCN
       end
       if freebase
         resource.relate("[dcterms:isVersionOf]", freebase)
-      end
-      
+      end            
     end
   end
   

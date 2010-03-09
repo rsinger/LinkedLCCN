@@ -1,5 +1,5 @@
 class LinkedLCCN::LCCN
-  attr_reader :lccn, :marc, :graph, :viaf
+  attr_reader :lccn, :marc, :graph, :viaf, :cached_rdf
   def initialize(lccn)
     @lccn = lccn
     @viaf = []
@@ -19,6 +19,9 @@ class LinkedLCCN::LCCN
     @marc = record
   end
   
+  def cache_rdf
+    @cached_rdf = @graph.to_xml(3)
+  end
   
   def relator_to_rdf(field)
     relators = []
@@ -167,7 +170,7 @@ class LinkedLCCN::LCCN
 
     if @marc['100']
       if viaf = LinkedLCCN::VIAF.lookup_by_name(@marc['100'])
-        @viaf << {:type=>:creator, :resource=>viaf}
+        @viaf << {:type=>:creator, :resource=>viaf, :cache=>viaf.to_xml(2)}
         relator_to_rdf(@marc['100']).each do | relator |
           @graph.relate(relator, viaf)
         end
@@ -176,7 +179,7 @@ class LinkedLCCN::LCCN
     auths = @marc.find_all {|f| f.tag == '700'}
     auths.each do | auth |
       if viaf = LinkedLCCN::VIAF.lookup_by_name(auth)
-        @viaf << {:type=>:creator, :resource=>viaf}
+        @viaf << {:type=>:creator, :resource=>viaf, :cache=>viaf.to_xml(2)}
         relator_to_rdf(auth).each do | relator |
           @graph.relate(relator, viaf)
         end 
@@ -225,9 +228,22 @@ class LinkedLCCN::LCCN
   end
     
   def background_tasks
-    puts "Started."
+    @marc = MARC::Record.new_from_record(@marc)
+    collection = RDFObject::Parser.parse(@cached_rdf, :format=>"rdfxml")    
+    @graph = collection[@graph.uri]
+    @viaf.each do | viaf |
+      if viaf[:cache]
+        c = RDFObject::Parser.parse(viaf[:cache], :format=>"rdfxml")
+        viaf[:resource] = c[viaf[:resource].uri]
+      end
+      @graph.assertions.each_pair do |pred, obj|
+        next unless obj.respond_to?(:uri)
+        if obj.uri == viaf[:resource].uri
+          [*@graph[pred]].delete(obj)
+          @graph.relate(pred, viaf[:resource])
+        end
+      end
+    end    
     advanced_rdf
-    r = STORE.store_data(lccn.graph.to_xml(2))
-    puts r.inspect
   end    
 end

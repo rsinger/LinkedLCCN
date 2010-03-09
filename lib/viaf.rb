@@ -10,7 +10,6 @@ class LinkedLCCN::VIAF
         (src, ident) = source.inner_xml.split("|")
         next unless src == "LC"
         lccn = ident.gsub(/\s/,"")
-        puts lccn
         if lccn == id      
           result.find('//v:VIAFCluster/v:mainHeadings/v:data/v:text', 'v:http://viaf.org/Domain/Cluster/terms#').each do | main_heading |
             resource.assert("[foaf:name]", main_heading.inner_xml)
@@ -50,16 +49,17 @@ class LinkedLCCN::VIAF
       name_values << subfield.value
     end
     results = self.search("local.names all \"#{name_values.join(" ").strip_trailing_punct}\"")
+    resource = nil
     results.each do | result |
-      result.find('//v:VIAFCluster/v:mainHeadings/v:data/v:text', 'v:http://viaf.org/Domain/Cluster/terms#').each do | main_heading |
+      result.find('.//v:VIAFCluster/v:mainHeadings/v:data/v:text', 'v:http://viaf.org/Domain/Cluster/terms#').each do | main_heading |
         if main_heading.inner_xml == name_values.join(" ").strip_trailing_punct
-          result.find('//v:VIAFCluster/v:viafID', 'v:http://viaf.org/Domain/Cluster/terms#').each do | viaf_id |
+          result.find('.//v:VIAFCluster/v:viafID', 'v:http://viaf.org/Domain/Cluster/terms#').each do | viaf_id |
             uri = "http://viaf.org/viaf/#{viaf_id.inner_xml}.rwo"
             concept = RDFObject::Resource.new(uri)
             concept.describe
             return concept if subject
             lccn = nil
-            result.find('//v:VIAFCluster/v:sources/v:source', 'v:http://viaf.org/Domain/Cluster/terms#').each do | source |
+            result.find('.//v:VIAFCluster/v:sources/v:source', 'v:http://viaf.org/Domain/Cluster/terms#').each do | source |
               (src, id) = source.inner_xml.split("|")
               next unless src == "LC"
               lccn = id.gsub(/\s/,"")
@@ -72,6 +72,7 @@ class LinkedLCCN::VIAF
             # Clean up viaf's wonky dbpedia associations.
             if concept.foaf
               [*concept.foaf['page']].each do | page |
+                next unless page
                 u = URI.parse page.uri
                 next unless u.host == "dbpedia.org"
                 u.path.sub!(/^\/page\//,"/resource/")
@@ -79,10 +80,13 @@ class LinkedLCCN::VIAF
                 resource.relate("[owl:sameAs]", u.to_s)
               end
             end
-            return resource
+            return resource if lccn
           end
         end
       end
+    end
+    if resource
+      return resource.umbel['isAbout']
     end
     nil
   end

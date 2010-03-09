@@ -2,11 +2,18 @@ $:.unshift *Dir[File.dirname(__FILE__) + "/vendor/*/lib"]
 require 'rubygems'
 require 'sinatra'
 require 'logger'
-#require 'active_record'
-#require 'delayed_job'
+require 'active_record'
+require 'delayed_job'
 load 'lib/util.rb'
-RunLater.run_now = true
 include RDFObject
+unless ENV['PLATFORM_STORE']
+  CONFIG = YAML.load_file('config/config.yml')
+end
+RELATORS = {:missing=>[]}
+RELATORS[:codes] = YAML.load_file('lib/relators.yml')
+STORE = Pho::Store.new(ENV['PLATFORM_STORE'] || CONFIG['store']['uri'], 
+  ENV['PLATFORM_USERNAME'] || CONFIG['store']['username'],
+  ENV['PLATFORM_PASSWORD'] || CONFIG['store']['password'])
 
 configure do
   Curie.add_prefixes! :mo=>"http://purl.org/ontology/mo/", :skos=>"http://www.w3.org/2004/02/skos/core#",
@@ -14,26 +21,17 @@ configure do
    :dcterms => 'http://purl.org/dc/terms/', :bibo => 'http://purl.org/ontology/bibo/', :rda=>"http://RDVocab.info/Elements/",
    :role => 'http://RDVocab.info/roles/', :umbel => 'http://umbel.org/umbel#', :meta=>"http://purl.org/NET/lccn/vocab/",
    :rss => "http://purl.org/rss/1.0/"
-  unless ENV['PLATFORM_STORE']
-    config = YAML.load_file('config/config.yml')
-  end
-  RELATORS = {:missing=>[]}
-  RELATORS[:codes] = YAML.load_file('lib/relators.yml')
-  STORE = Pho::Store.new(ENV['PLATFORM_STORE'] || config['store']['uri'], 
-    ENV['PLATFORM_USERNAME'] || config['store']['username'],
-    ENV['PLATFORM_PASSWORD'] || config['store']['password'])
-  #dbconf = config['database']
-  #ActiveRecord::Base.establish_connection(dbconf) 
-  #ActiveRecord::Base.logger = Logger.new(File.open('log/database.log', 'a')) 
-  #ActiveRecord::Migrator.up('db/migrate') 
-  #LOGGER = Logger.new(STDOUT)
 
+  dbconf = CONFIG['database']
+  ActiveRecord::Base.establish_connection(dbconf) 
+  ActiveRecord::Base.logger = Logger.new(File.open('log/database.log', 'a')) 
+  ActiveRecord::Migrator.up('db/migrate')
 end
 get '/:id' do
   resource = fetch_resource("http://purl.org/NET/lccn/#{params[:id]}#i")
   not_found if resource.empty_graph?
   content_type 'application/rdf+xml', :charset => 'utf-8'
-  headers['Cache-Control'] = 'public, max-age=21600'
+  #headers['Cache-Control'] = 'public, max-age=21600'
   resource.to_xml(2)
 end
 
@@ -56,24 +54,7 @@ get '/missing/relators' do
   RELATORS[:missing].to_json
 end
 
-get '/test/delay' do
-  run_later do
-    sleep(10)
-    puts "Awake now"
-  end
-  "OK"
-end
-
-get '/jobs/all' do
-  out = ""
-  Delayed::Job.find(:all).each do | job |
-    out << "#{job.handler.inspect}\n"
-    out << "\n\nAttempts:  #{job.attempts}\n"
-    out << "\nLast Error:  #{job.last_error}"
-  end
-  out
-end
-
 not_found do
   "Resource not found"
 end
+

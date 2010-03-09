@@ -8,3 +8,5 @@ ken
 libxml-ruby
 rbrainz
 pho
+active_record
+delayed_job

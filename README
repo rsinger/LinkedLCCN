@@ -1,0 +1,16 @@
+LinkedLCCN is a project intended to provide a Linked Open Data representation of the Library of Congress' LCCN Permalink (http://lccn.loc.gov/) service.
+
+Based on Ruby's Sinatra (http://sinatrarb.com/) framework, it proxies the LCCN permalink service's marcxml output and models it using enhanced_marc and RDFObjects.  Through the course of modeling it queries:
+
+* viaf.org
+* Library of Congress' SRU service
+* dbpedia.org
+* musicbrainz
+* id.loc.gov/authorities
+* freebase
+* openlibrary
+* linkedmdb.org
+
+It achieves this by initially returning a subset of the entire graph (and an HTTP 206 response).  It then kicks off a Delayed Job (http://github.com/tobi/delayed_job) queue and queries the above services.  It stores the enriched graph in the Talis Platform.  Any subsequent request for the same URI will return the cached the result from the Platform.
+
+Currently it only returns RDF/XML.

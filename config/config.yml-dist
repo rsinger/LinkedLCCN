@@ -1,0 +1,8 @@
+store:
+    uri: http://api.talis.com/stores/{store-name}
+    username: 
+    password: 
+
+database:
+    adapter:  sqlite3
+    database: db/linkedlccn.db    

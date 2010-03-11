@@ -10,7 +10,7 @@ require 'isbn/tools'
 require 'sru'
 require 'yaml'
 require 'pho'
-require 'lib/linked_lccn'
+require File.dirname(__FILE__) + '/linked_lccn'
 
 include RDFObject
 unless ENV['PLATFORM_STORE']

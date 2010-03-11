@@ -38,8 +38,8 @@ end
 def init_database
   dbconf = CONFIG['database']
   ActiveRecord::Base.establish_connection(dbconf) 
-  ActiveRecord::Base.logger = Logger.new(File.open('log/database.log', 'a')) 
-  ActiveRecord::Migrator.up('db/migrate')
+  #ActiveRecord::Base.logger = Logger.new(File.open('log/database.log', 'a')) 
+  ActiveRecord::Migrator.up(File.dirname(__FILE__) + '/../db/migrate')
 end  
 
 MARC::XMLReader.nokogiri!

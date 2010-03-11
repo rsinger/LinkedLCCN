@@ -1,0 +1,17 @@
+%div{:class=>display_class(@resource)}
+  %h2= find_title(@resource)
+  %h4= "&lt;<a href=\"#{@resource.uri}\">#{@resource.uri}</a>&gt;"
+  %table.graphInfo
+    - @resource.assertions.each do |predicate,object|
+      %tr
+        %td.tableLabel 
+          %abbr{:title=>predicate}= curied_uri(predicate)
+        
+        %td.tableValue
+          -[*object].each do |o|
+            -if o.is_a?(RDFObject::Resource) or o.is_a?(RDFObject::ResourceReference)
+              .uriReference
+                %a{:href=>o.uri}= o.uri
+            - else
+              .literal= o
+  

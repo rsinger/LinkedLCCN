@@ -4,6 +4,7 @@ require 'sinatra'
 require 'logger'
 require 'active_record'
 require 'delayed_job'
+require 'rack/conneg'
 load 'lib/util.rb'
 include RDFObject
 unless ENV['PLATFORM_STORE']
@@ -27,26 +28,52 @@ configure do
   ActiveRecord::Base.logger = Logger.new(File.open('log/database.log', 'a')) 
   ActiveRecord::Migrator.up('db/migrate')
 end
+
+use(Rack::Conneg) { |conneg|
+  conneg.set :accept_all_extensions, false
+  conneg.set :fallback, :html
+  conneg.ignore('/public/')
+  conneg.ignore('/css/')
+  conneg.ignore('/js/')
+  conneg.provide([:rdf, :txt, :html])
+}
+
+before do  
+  content_type negotiated_type
+end
+
+layout do
+  IO.read("views/layout.haml")
+end
+
 get '/:id' do
-  resource = fetch_resource("http://purl.org/NET/lccn/#{params[:id]}#i")
-  not_found if resource.empty_graph?
-  content_type 'application/rdf+xml', :charset => 'utf-8'
-  #headers['Cache-Control'] = 'public, max-age=21600'
-  resource.to_xml(2)
+  @resource = fetch_resource("http://purl.org/NET/lccn/#{params[:id]}#i")
+  not_found if @resource.empty_graph?
+  respond_to do | wants |
+    wants.html { haml :lccn }
+    wants.rdf { @resource.to_xml(2) }
+    wants.txt { @resource.to_ntriples }
+  end  
 end
 
 get '/subjects/:label' do
-  concept = fetch_resource("http://purl.org/NET/lccn/subjects/#{CGI.escape(params[:label])}#concept")
-  not_found if concept.empty_graph?
-  content_type 'application/rdf+xml', :charset => 'utf-8'  
-  concept.to_xml(2)
+  @resource = fetch_resource("http://purl.org/NET/lccn/subjects/#{CGI.escape(params[:label])}#concept")
+  not_found if @resource.empty_graph?
+  respond_to do | wants |
+    wants.html { haml :lccn }
+    wants.rdf { @resource.to_xml(2) }
+    wants.txt { @resource.to_ntriples }
+  end
 end
 
 get '/people/:id' do
-  person = fetch_resource("http://purl.org/NET/lccn/people/#{params[:id]}#i")
-  not_found if person.empty_graph?
-  content_type 'application/rdf+xml', :charset => 'utf-8'  
-  person.to_xml(2)  
+  @resource = fetch_resource("http://purl.org/NET/lccn/people/#{params[:id]}#i")
+  not_found if @resource.empty_graph?
+  respond_to do | wants |
+    wants.html { haml :lccn }
+    wants.rdf { @resource.to_xml(2) }
+    wants.txt { @resource.to_ntriples }
+  end 
 end
 
 get '/missing/relators' do
@@ -54,6 +81,40 @@ get '/missing/relators' do
   RELATORS[:missing].to_json
 end
 
+helpers do
+  def curied_uri(uri)
+    curie = Curie.create_from_uri(uri)
+    return "#{curie.prefix}:#{curie.reference}"
+  end
+  
+  def find_title(resource)
+    if resource.rda && resource.rda['titleProper']
+      return [*resource.rda['titleProper']].first
+    elsif resource.skos && resource.skos['prefLabel']
+      return [*resource.skos['prefLabel']].first
+    elsif resource.foaf && resource.foaf['name']
+      return [*resource.foaf['name']].first
+    elsif resource.dcterms && resource.dcterms['title']
+      return [*resource.dcterms['title']].first
+    else
+      "Unknown title"
+    end
+  end
+  
+  def display_class(resource)
+    [*resource.rdf['type']].each do |rdf_type|
+      display_type = case rdf_type.uri
+      when "http://purl.org/ontology/bibo/Book" then "biboBook"
+      when "http://purl.org/ontology/bibo/Journal" then "biboJournal"
+      when "http://xmlns.com/foaf/0.1/Person" then "foafPerson"
+      
+      else nil
+      end
+      return display_type if display_type
+    end
+    "Generic"
+  end
+end
 not_found do
   "Resource not found"
 end

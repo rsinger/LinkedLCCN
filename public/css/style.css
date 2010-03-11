@@ -1,0 +1,24 @@
+body {
+    font-family: "arial","helvetica","verdana", sans-serif
+}
+
+.tableLabel {
+    text-align: right;
+    border-right: thin dotted black;
+    background-color: eee;
+}
+
+.tableValue  { 
+    border-bottom: thin solid black;
+    background-color: fff;
+}
+.graphInfo {
+    align: center;
+    border: thin solid black;
+}
+
+ul.otherFormats li {
+    display: inline;
+    padding-left: 5px;
+    padding-right: 5px;
+}

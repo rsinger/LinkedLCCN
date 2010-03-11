@@ -50,6 +50,9 @@ def fetch_resource(uri)
       LinkedLCCN::LibraryOfCongress.creator_search(resource)
       STORE.store_data(resource.to_xml(2))    
     end
+  elsif uri =~ /\/subjects\//
+    resource.relate("[rdf:type]", "[skos:Concept]")
+    resource.assert("[skos:prefLabel]", params[:label])
   else
     lccn = LinkedLCCN::LCCN.new(params["id"])
     lccn.get_marc

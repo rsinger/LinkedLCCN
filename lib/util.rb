@@ -37,7 +37,6 @@ end
 
 def init_database
   dbconf = CONFIG['database']
-  puts dbconf.inspect
   ActiveRecord::Base.establish_connection(dbconf) 
   ActiveRecord::Base.logger = Logger.new(File.open(File.dirname(__FILE__) + '/../log/database.log', 'a')) 
   ActiveRecord::Migrator.up(File.dirname(__FILE__) + '/../db/migrate')

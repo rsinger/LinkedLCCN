@@ -76,6 +76,11 @@ get '/people/:id' do
   end 
 end
 
+get '/log/jobs' do
+  @jobs = Delayed::Job.find(:all)
+  haml :job_status, :layout=>:job
+end
+
 get '/missing/relators' do
   content_type 'application/json', :charset => 'utf-8'
   RELATORS[:missing].to_json

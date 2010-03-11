@@ -102,15 +102,17 @@ helpers do
   end
   
   def display_class(resource)
-    [*resource.rdf['type']].each do |rdf_type|
-      display_type = case rdf_type.uri
-      when "http://purl.org/ontology/bibo/Book" then "biboBook"
-      when "http://purl.org/ontology/bibo/Journal" then "biboJournal"
-      when "http://xmlns.com/foaf/0.1/Person" then "foafPerson"
+    if resource.rdf && resource.rdf['type']
+      [*resource.rdf['type']].each do |rdf_type|
+        display_type = case rdf_type.uri
+        when "http://purl.org/ontology/bibo/Book" then "biboBook"
+        when "http://purl.org/ontology/bibo/Journal" then "biboJournal"
+        when "http://xmlns.com/foaf/0.1/Person" then "foafPerson"
       
-      else nil
+        else nil
+        end
+        return display_type if display_type
       end
-      return display_type if display_type
     end
     "Generic"
   end

@@ -3,12 +3,11 @@ module Delayed
     SLEEP = 5
 
     cattr_accessor :logger
-    self.logger = if defined?(Merb::Logger)
-      Merb.logger
-    elsif defined?(RAILS_DEFAULT_LOGGER)
-      RAILS_DEFAULT_LOGGER
+    self.logger = if defined?(DJ_LOGGER)
+      DJ_LOGGER
     end
-
+    #self.logger = Logger.new(STDOUT)
+    
     def initialize(options={})
       @quiet = options[:quiet]
       Delayed::Job.min_priority = options[:min_priority] if options.has_key?(:min_priority)
@@ -27,7 +26,7 @@ module Delayed
         realtime = Benchmark.realtime do
           result = Delayed::Job.work_off
         end
-
+        
         count = result.sum
 
         break if $exit

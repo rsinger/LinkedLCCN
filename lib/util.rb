@@ -1,3 +1,7 @@
+$:.unshift *Dir[File.dirname(__FILE__) + "/../vendor/*/lib"]
+require 'logger'
+require 'active_record'
+require 'delayed_job'
 require 'json'
 require 'net/http'
 require 'enhanced_marc'
@@ -7,6 +11,36 @@ require 'sru'
 require 'yaml'
 require 'pho'
 require 'lib/linked_lccn'
+
+include RDFObject
+unless ENV['PLATFORM_STORE']
+  CONFIG = YAML.load_file('config/config.yml')
+end
+RELATORS = {:missing=>[]}
+RELATORS[:codes] = YAML.load_file('lib/relators.yml')
+STORE = Pho::Store.new(ENV['PLATFORM_STORE'] || CONFIG['store']['uri'], 
+  ENV['PLATFORM_USERNAME'] || CONFIG['store']['username'],
+  ENV['PLATFORM_PASSWORD'] || CONFIG['store']['password'])
+DJ_LOGGER = Logger.new(File.dirname(__FILE__) + '/../log/dj.log')  
+def init_environment
+  init_database
+  init_curies
+end
+
+def init_curies
+  Curie.add_prefixes! :mo=>"http://purl.org/ontology/mo/", :skos=>"http://www.w3.org/2004/02/skos/core#",
+   :owl=>'http://www.w3.org/2002/07/owl#', :wgs84 => 'http://www.w3.org/2003/01/geo/wgs84_pos#', 
+   :dcterms => 'http://purl.org/dc/terms/', :bibo => 'http://purl.org/ontology/bibo/', :rda=>"http://RDVocab.info/Elements/",
+   :role => 'http://RDVocab.info/roles/', :umbel => 'http://umbel.org/umbel#', :meta=>"http://purl.org/NET/lccn/vocab/",
+   :rss => "http://purl.org/rss/1.0/"
+end  
+
+def init_database
+  dbconf = CONFIG['database']
+  ActiveRecord::Base.establish_connection(dbconf) 
+  ActiveRecord::Base.logger = Logger.new(File.open('log/database.log', 'a')) 
+  ActiveRecord::Migrator.up('db/migrate')
+end  
 
 MARC::XMLReader.nokogiri!
 
@@ -75,8 +109,11 @@ end
 
 class AdvancedEnrichGraphJob < Struct.new(:lccn)
   def perform
+    DJ_LOGGER << "Enriching #{lccn.graph.uri}\n"
     lccn.background_tasks
+    DJ_LOGGER << "Enriched #{lccn.graph.uri}\n"
     res = STORE.store_data(lccn.graph.to_xml(3))
+    DJ_LOGGER << "Saved #{lccn.graph.uri}\n"
   end
 end
 

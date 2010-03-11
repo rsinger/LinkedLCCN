@@ -14,10 +14,10 @@ require File.dirname(__FILE__) + '/linked_lccn'
 
 include RDFObject
 unless ENV['PLATFORM_STORE']
-  CONFIG = YAML.load_file('config/config.yml')
+  CONFIG = YAML.load_file(File.dirname(__FILE__) + '/../config/config.yml')
 end
 RELATORS = {:missing=>[]}
-RELATORS[:codes] = YAML.load_file('lib/relators.yml')
+RELATORS[:codes] = YAML.load_file(File.dirname(__FILE__) + '/relators.yml')
 STORE = Pho::Store.new(ENV['PLATFORM_STORE'] || CONFIG['store']['uri'], 
   ENV['PLATFORM_USERNAME'] || CONFIG['store']['username'],
   ENV['PLATFORM_PASSWORD'] || CONFIG['store']['password'])

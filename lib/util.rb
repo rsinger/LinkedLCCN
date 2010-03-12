@@ -65,7 +65,7 @@ def fetch_resource(uri)
       [*resource.rdf['type']].each do | rdf_type |
         next unless rdf_type
         if rdf_type.uri == "http://purl.org/rss/1.0/item"
-          resource.rdf['type'].delete(rdf_type) 
+          [*resource.rdf['type']].delete(rdf_type) 
         end
       end
     end

@@ -228,9 +228,9 @@ class LinkedLCCN::LCCN
   end
     
   def background_tasks
-    @marc = MARC::Record.new_from_record(@marc)
-    collection = RDFObject::Parser.parse(@cached_rdf, :format=>"rdfxml")    
-    @graph = collection[@graph.uri]
+    #@marc = MARC::Record.new_from_record(@marc)
+    #collection = RDFObject::Parser.parse(@cached_rdf, :format=>"rdfxml")    
+    #@graph = collection[@graph.uri]
     @viaf.each do | viaf |
       if viaf[:cache]
         c = RDFObject::Parser.parse(viaf[:cache], :format=>"rdfxml")

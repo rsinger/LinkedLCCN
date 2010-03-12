@@ -11,6 +11,7 @@ require 'sru'
 require 'yaml'
 require 'pho'
 require File.dirname(__FILE__) + '/linked_lccn'
+require File.dirname(__FILE__) + '/spork'
 
 include RDFObject
 unless ENV['PLATFORM_STORE']
@@ -81,8 +82,10 @@ def fetch_resource(uri)
   elsif uri =~ /\/people\//
     resource = LinkedLCCN::VIAF.lookup_by_lccn(params[:id])
     unless resource.empty_graph?
-      LinkedLCCN::LibraryOfCongress.creator_search(resource)
-      STORE.store_data(resource.to_xml(2))    
+      spork = Spork.spork do
+        LinkedLCCN::LibraryOfCongress.creator_search(resource)
+        STORE.store_data(resource.to_xml(2))    
+      end
     end
   elsif uri =~ /\/subjects\//
     resource.relate("[rdf:type]", "[skos:Concept]")
@@ -94,8 +97,15 @@ def fetch_resource(uri)
     lccn.basic_rdf
     resource = lccn.graph
     status(206)
-    lccn.cache_rdf
-    Delayed::Job.enqueue  AdvancedEnrichGraphJob.new(lccn)
+    spork = Spork.spork do
+      puts "Enriching #{lccn.graph.uri}\n"
+      lccn.background_tasks
+      puts "Enriched #{lccn.graph.uri}\n"
+      res = STORE.store_data(lccn.graph.to_xml(3))
+      puts "Saved #{lccn.graph.uri}\n"
+    end
+    #lccn.cache_rdf
+    #Delayed::Job.enqueue  AdvancedEnrichGraphJob.new(lccn)
   end
   resource
 end

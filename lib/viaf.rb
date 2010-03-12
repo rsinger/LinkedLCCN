@@ -17,12 +17,14 @@ class LinkedLCCN::VIAF
               uri = "http://viaf.org/viaf/#{viaf_id.inner_xml}.rwo"
               concept = RDFObject::Resource.new(uri)
               concept.describe
+              normalize_uris(concept)
               resource.relate("[rdf:type]", "[foaf:Person]")
 
               resource.relate("[umbel:isAbout]", concept)
               # Clean up viaf's wonky dbpedia associations.
               [*concept.foaf['page']].each do | page |
                 u = Addressable::URI.parse page.uri
+                u.normalize!
                 next unless u.host == "dbpedia.org"
                 u.path.sub!(/^\/page\//,"/resource/")
                 u.path.sub!(/Wikipedia\:WikiProject_/,"")
@@ -57,6 +59,7 @@ class LinkedLCCN::VIAF
             uri = "http://viaf.org/viaf/#{viaf_id.inner_xml}.rwo"
             concept = RDFObject::Resource.new(uri)
             concept.describe
+            normalize_uris(concept)
             return concept if subject
             lccn = nil
             result.find('.//v:VIAFCluster/v:sources/v:source', 'v:http://viaf.org/Domain/Cluster/terms#').each do | source |
@@ -74,6 +77,7 @@ class LinkedLCCN::VIAF
               [*concept.foaf['page']].each do | page |
                 next unless page
                 u = Addressable::URI.parse page.uri
+                u.normalize!
                 next unless u.host == "dbpedia.org"
                 u.path.sub!(/^\/page\//,"/resource/")
                 u.path.sub!(/Wikipedia\:WikiProject_/,"")
@@ -89,6 +93,16 @@ class LinkedLCCN::VIAF
       return resource.umbel['isAbout']
     end
     nil
+  end
+  
+  def self.normalize_uris(resource)
+    resource.assertions.each do |predicate,objects|
+      [*objects].each do |object|
+        if object.is_a?(RDFObject::Resource) or object.is_a?(RDFObject::ResourceReference) 
+          object.uri = Addressable::URI.normalized_encode(object.uri)
+        end
+      end
+    end
   end
   
 end

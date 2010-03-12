@@ -92,7 +92,6 @@ def fetch_resource(uri)
       lccn.background_tasks
       puts "Enriched #{lccn.graph.uri}\n"
       res = STORE.store_data(lccn.graph.to_xml(3))
-      puts res.inspect
       puts "Saved #{lccn.graph.uri}\n"
     end
   end

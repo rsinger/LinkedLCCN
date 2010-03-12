@@ -1,7 +1,8 @@
 class LinkedLCCN::LCSH
   def self.lookup_by_label(label)
     begin
-      u = URI.parse("http://id.loc.gov/authorities/label/#{label.gsub(/\s/,"%20")}")
+      u = Addressable::URI.parse("http://id.loc.gov/authorities/label/#{label.gsub(/\s/,"%20")}")
+      u.normalize!
     rescue URI::InvalidURIError
       return nil
     end

@@ -223,27 +223,7 @@ class LinkedLCCN::LCCN
     end
   end   
   
-  def queue
-    Delayed::Job.enqueue self
-  end
-    
   def background_tasks
-    #@marc = MARC::Record.new_from_record(@marc)
-    #collection = RDFObject::Parser.parse(@cached_rdf, :format=>"rdfxml")    
-    #@graph = collection[@graph.uri]
-    #@viaf.each do | viaf |
-    #  if viaf[:cache]
-    #    c = RDFObject::Parser.parse(viaf[:cache], :format=>"rdfxml")
-    #    viaf[:resource] = c[viaf[:resource].uri]
-    #  end
-    #  @graph.assertions.each_pair do |pred, obj|
-    #    next unless obj.respond_to?(:uri)
-    #    if obj.uri == viaf[:resource].uri
-    #      [*@graph[pred]].delete(obj)
-    #      @graph.relate(pred, viaf[:resource])
-    #    end
-    #  end
-    #end    
     advanced_rdf
   end    
 end

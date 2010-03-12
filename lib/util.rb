@@ -10,6 +10,7 @@ require 'isbn/tools'
 require 'sru'
 require 'yaml'
 require 'pho'
+require 'addressable/uri'
 require File.dirname(__FILE__) + '/linked_lccn'
 require File.dirname(__FILE__) + '/spork'
 
@@ -22,9 +23,8 @@ RELATORS[:codes] = YAML.load_file(File.dirname(__FILE__) + '/relators.yml')
 STORE = Pho::Store.new(ENV['PLATFORM_STORE'] || CONFIG['store']['uri'], 
   ENV['PLATFORM_USERNAME'] || CONFIG['store']['username'],
   ENV['PLATFORM_PASSWORD'] || CONFIG['store']['password'])
-DJ_LOGGER = Logger.new(File.dirname(__FILE__) + '/../log/dj.log')  
+
 def init_environment
-  init_database
   init_curies
 end
 
@@ -34,13 +34,6 @@ def init_curies
    :dcterms => 'http://purl.org/dc/terms/', :bibo => 'http://purl.org/ontology/bibo/', :rda=>"http://RDVocab.info/Elements/",
    :role => 'http://RDVocab.info/roles/', :umbel => 'http://umbel.org/umbel#', :meta=>"http://purl.org/NET/lccn/vocab/",
    :rss => "http://purl.org/rss/1.0/"
-end  
-
-def init_database
-  dbconf = CONFIG['database']
-  ActiveRecord::Base.establish_connection(dbconf) 
-  ActiveRecord::Base.logger = Logger.new(File.open(File.dirname(__FILE__) + '/../log/database.log', 'a')) 
-  ActiveRecord::Migrator.up(File.dirname(__FILE__) + '/../db/migrate')
 end  
 
 MARC::XMLReader.nokogiri!
@@ -104,8 +97,6 @@ def fetch_resource(uri)
       res = STORE.store_data(lccn.graph.to_xml(3))
       puts "Saved #{lccn.graph.uri}\n"
     end
-    #lccn.cache_rdf
-    #Delayed::Job.enqueue  AdvancedEnrichGraphJob.new(lccn)
   end
   resource
 end
@@ -115,20 +106,6 @@ def fetch_from_platform(uri)
   collection = Parser.parse(response.body.content, "rdfxml")
   return collection unless collection.empty?
   false
-end
-
-class AdvancedEnrichGraphJob < Struct.new(:lccn)
-  def perform
-    DJ_LOGGER << "Enriching #{lccn.graph.uri}\n"
-    lccn.background_tasks
-    DJ_LOGGER << "Enriched #{lccn.graph.uri}\n"
-    res = STORE.store_data(lccn.graph.to_xml(3))
-    DJ_LOGGER << "Saved #{lccn.graph.uri}\n"
-  end
-end
-
-class CreatorEnhance < Struct.new(:resource)
-  
 end
 
 class RDFObject::Resource

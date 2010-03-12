@@ -22,7 +22,7 @@ class LinkedLCCN::VIAF
               resource.relate("[umbel:isAbout]", concept)
               # Clean up viaf's wonky dbpedia associations.
               [*concept.foaf['page']].each do | page |
-                u = URI.parse page.uri
+                u = Addressable::URI.parse page.uri
                 next unless u.host == "dbpedia.org"
                 u.path.sub!(/^\/page\//,"/resource/")
                 u.path.sub!(/Wikipedia\:WikiProject_/,"")
@@ -73,7 +73,7 @@ class LinkedLCCN::VIAF
             if concept.foaf
               [*concept.foaf['page']].each do | page |
                 next unless page
-                u = URI.parse page.uri
+                u = Addressable::URI.parse page.uri
                 next unless u.host == "dbpedia.org"
                 u.path.sub!(/^\/page\//,"/resource/")
                 u.path.sub!(/Wikipedia\:WikiProject_/,"")

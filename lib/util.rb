@@ -10,6 +10,7 @@ require 'isbn/tools'
 require 'sru'
 require 'yaml'
 require 'pho'
+require 'addressable/uri'
 require File.dirname(__FILE__) + '/linked_lccn'
 
 include RDFObject

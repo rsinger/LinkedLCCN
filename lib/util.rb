@@ -94,7 +94,8 @@ def fetch_resource(uri)
     not_found if lccn.marc.nil?
     lccn.basic_rdf
     resource = lccn.graph
-    status(206)
+    status(202)
+    headers['Retry-After'] = (DateTime.now + 2.minutes).to_s
     lccn.cache_rdf
     Delayed::Job.enqueue  AdvancedEnrichGraphJob.new(lccn)
   end

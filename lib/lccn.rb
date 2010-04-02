@@ -38,7 +38,7 @@ class LinkedLCCN::LCCN
             relators << rel['relationship']
           end
         else        
-          @missing_relators << subfield.value
+          RELATORS[:missing] << subfield.value
         end
       end
       break unless relators.empty?

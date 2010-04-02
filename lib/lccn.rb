@@ -1,5 +1,6 @@
 class LinkedLCCN::LCCN
-  attr_reader :lccn, :marc, :graph, :viaf, :cached_rdf
+  attr_reader :lccn, :cached_rdf
+  attr_accessor :marc, :graph, :viaf
   def initialize(lccn)
     @lccn = lccn
     @viaf = []
@@ -226,24 +227,48 @@ class LinkedLCCN::LCCN
   def queue
     Delayed::Job.enqueue self
   end
+  
+  def to_json
+    cache_rdf
+    cache = {:lccn=>@lccn, :rdf=>@cached_rdf, :marc=>Base64.encode64(@marc.to_marc), :viaf=>[], :uri=>@graph.uri}
+    @viaf.each do | viaf |
+      cache[:viaf] << {:type=>viaf[:type], :rdf=>viaf[:cache], :uri=>viaf[:resource].uri}
+    end
+    cache.to_json
+  end
+  
+  def self.new_from_json(json)
+    lccn = self.new(json["lccn"])
+    
+    marc = MARC::ForgivingReader.new(StringIO.new(Base64.decode64(json["marc"])))
+    marc.each {|m| lccn.marc = m }
+    collection = RDFObject::Parser.parse(json["rdf"], :format=>"rdfxml")
+    lccn.graph = collection["http://purl.org/NET/lccn/#{json["lccn"]}#i"]
+    lccn.viaf = []
+    json["viaf"].each do |viaf|
+      v_collection = RDFObject::Parser.parse(viaf["rdf"], "rdfxml")
+      lccn.viaf << {:type=>viaf["type"], :resource=>v_collection[viaf["uri"]], :cache=>viaf["rdf"]}
+    end
+    lccn
+  end
     
   def background_tasks
-    @marc = MARC::Record.new_from_record(@marc)
-    collection = RDFObject::Parser.parse(@cached_rdf, :format=>"rdfxml")    
-    @graph = collection[@graph.uri]
-    @viaf.each do | viaf |
-      if viaf[:cache]
-        c = RDFObject::Parser.parse(viaf[:cache], :format=>"rdfxml")
-        viaf[:resource] = c[viaf[:resource].uri]
-      end
-      @graph.assertions.each_pair do |pred, obj|
-        next unless obj.respond_to?(:uri)
-        if obj.uri == viaf[:resource].uri
-          [*@graph[pred]].delete(obj)
-          @graph.relate(pred, viaf[:resource])
-        end
-      end
-    end    
+#    @marc = MARC::Record.new_from_record(@marc)
+#    collection = RDFObject::Parser.parse(@cached_rdf, :format=>"rdfxml")    
+#    @graph = collection[@graph.uri]
+#    @viaf.each do | viaf |
+#      if viaf[:cache]
+#        c = RDFObject::Parser.parse(viaf[:cache], :format=>"rdfxml")
+#        viaf[:resource] = c[viaf[:resource].uri]
+#      end
+#      @graph.assertions.each_pair do |pred, obj|
+#        next unless obj.respond_to?(:uri)
+#        if obj.uri == viaf[:resource].uri
+#          [*@graph[pred]].delete(obj)
+#          @graph.relate(pred, viaf[:resource])
+#        end
+#      end
+#    end    
     advanced_rdf
   end    
 end

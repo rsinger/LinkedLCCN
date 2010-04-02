@@ -96,8 +96,8 @@ def fetch_resource(uri)
     resource = lccn.graph
     status(202)
     headers['Retry-After'] = "120"
-    lccn.cache_rdf
-    Delayed::Job.enqueue  AdvancedEnrichGraphJob.new(lccn)
+    store_object_in_platform(lccn)
+    Delayed::Job.enqueue  AdvancedEnrichGraphJob.new(lccn.lccn)
   end
   resource
 end
@@ -109,13 +109,23 @@ def fetch_from_platform(uri)
   false
 end
 
+def store_object_in_platform(lccn)
+  
+  STORE.upload_item(StringIO.new(lccn.to_json), "application/json", lccn.lccn)
+end
+
 class AdvancedEnrichGraphJob < Struct.new(:lccn)
   def perform
-    DJ_LOGGER << "Enriching #{lccn.graph.uri}\n"
-    lccn.background_tasks
-    DJ_LOGGER << "Enriched #{lccn.graph.uri}\n"
-    res = STORE.store_data(lccn.graph.to_xml(3))
-    DJ_LOGGER << "Saved #{lccn.graph.uri}\n"
+    r = STORE.get_item("/items/#{lccn}")
+    return unless r.status == 200
+    l = LinkedLCCN::LCCN.new_from_json(JSON.parse(r.body.content))
+    DJ_LOGGER << "Enriching #{l.graph.uri}\n"
+    l.background_tasks
+    DJ_LOGGER << "Enriched #{l.graph.uri}\n"
+    res = STORE.store_data(l.graph.to_xml(3))
+    DJ_LOGGER << "Saved #{l.graph.uri}\n"
+    puts l.inspect
+    STORE.delete_item("/items/#{lccn}")
   end
 end
 

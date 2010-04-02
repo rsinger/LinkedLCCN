@@ -124,7 +124,6 @@ class AdvancedEnrichGraphJob < Struct.new(:lccn)
     DJ_LOGGER << "Enriched #{l.graph.uri}\n"
     res = STORE.store_data(l.graph.to_xml(3))
     DJ_LOGGER << "Saved #{l.graph.uri}\n"
-    puts l.inspect
     STORE.delete_item("/items/#{lccn}")
   end
 end

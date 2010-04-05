@@ -83,7 +83,7 @@ module LinkedLCCN
         resource.relate("[rdf:type]", "[bibo:Book]")
       end
 
-      if marc.nature_of_contents
+      if marc.nature_of_contents(true)
         marc.nature_of_contents(true).each do | genre |        
           resource.assert("[dcterms:type]", genre)
         end

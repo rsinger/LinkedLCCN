@@ -66,19 +66,7 @@ end
 def fetch_resource(uri)
   resource = RDFObject::Resource.new(uri)
   if collection = fetch_from_platform(uri)
-    response = STORE.augment(collection[uri].to_rss)
-    augmented_collection = RDFObject::Parser.parse(response.body.content)
-    resource = augmented_collection[uri]
-    resource.rss.delete("title") if resource.rss && resource.rss["title"] = "Item"
-    resource.rss.delete("link") if resource.rss && resource.rss["link"] = uri
-    if resource.rdf && resource.rdf['type']
-      [*resource.rdf['type']].each do | rdf_type |
-        next unless rdf_type
-        if rdf_type.uri == "http://purl.org/rss/1.0/item"
-          resource.rdf['type'].delete(rdf_type) 
-        end
-      end
-    end
+    resource = collection[uri]
   elsif uri =~ /\/people\//
     resource = LinkedLCCN::VIAF.lookup_by_lccn(params[:id])
     unless resource.empty_graph?
@@ -107,6 +95,28 @@ def fetch_from_platform(uri)
   collection = Parser.parse(response.body.content, "rdfxml")
   return collection unless collection.empty?
   false
+end
+
+def augment_resource(resource)
+  collection = RDFObject::Collection.new
+  collection[resource.uri] = resource
+  collection = augment_collection(resource.uri, collection)
+  return collection[resource.uri]
+end
+
+def augment_collection(uri, collection)
+  describe_objects =<<END
+DESCRIBE ?o
+WHERE
+{
+  <#{uri}> ?p ?o 
+}
+END
+  sparql_response = STORE.sparql_describe(describe_objects, "text/plain")
+  parser = RDFObject::NTriplesParser.new
+  parser.collection = collection
+  parser.data = sparql_response.body.content
+  return parser.parse
 end
 
 def store_object_in_platform(lccn)

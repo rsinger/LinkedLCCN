@@ -33,7 +33,9 @@ get '/:id' do
   not_found if @resource.empty_graph?
   respond_to do | wants |
     wants.html { haml :lccn }
-    wants.rdf { @resource.to_xml(2) }
+    wants.rdf {       
+      augment_resource(@resource).to_xml(2) 
+    }
     wants.txt { @resource.to_ntriples }
   end  
 end
@@ -53,7 +55,9 @@ get '/people/:id' do
   not_found if @resource.empty_graph?
   respond_to do | wants |
     wants.html { haml :lccn }
-    wants.rdf { @resource.to_xml(2) }
+    wants.rdf { 
+      augment_resource(@resource).to_xml(2) 
+      }
     wants.txt { @resource.to_ntriples }
   end 
 end

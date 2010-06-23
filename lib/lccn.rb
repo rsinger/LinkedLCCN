@@ -151,6 +151,12 @@ class LinkedLCCN::LCCN
           @graph.relate("[dcterms:subject]", authority)
         end
       end
+      if subject.tag == "600"
+        authority = LinkedLCCN::VIAF.lookup_by_name(subject, true)
+        if authority
+          @graph.relate("[dcterms:subject]", authority)
+        end
+      end
       unless authority
         subj = RDFObject::Resource.new("http://purl.org/NET/lccn/subjects/#{CGI.escape(literal)}")
         subj.relate("[rdf:type]", "[skos:Concept]")

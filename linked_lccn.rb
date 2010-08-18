@@ -28,6 +28,15 @@ layout do
   IO.read("views/layout.haml")
 end
 
+get "/" do
+  haml :index, :layout => false
+end
+
+get "/zeitgeist" do
+  @zeitgeist = fetch_zeitgeist()
+  haml :zeitgeist, :layout => false
+end
+
 get '/:id' do
   @resource = fetch_resource("http://purl.org/NET/lccn/#{params[:id]}#i")
   not_found if @resource.empty_graph?
@@ -53,6 +62,7 @@ end
 get '/people/:id' do
   @resource = fetch_resource("http://purl.org/NET/lccn/people/#{params[:id]}#i")
   not_found if @resource.empty_graph?
+  augment_object_display_labels(@resource)
   respond_to do | wants |
     wants.html { haml :lccn }
     wants.rdf { 
@@ -102,6 +112,17 @@ helpers do
       end
     end
     "Generic"
+  end
+  
+  def display_label(resource)
+    label = case
+    when resource.skos && resource.skos['prefLabel'] then resource.skos['prefLabel']
+    when resource.rda && resource.rda['titleProper'] then resource.rda['titleProper']
+    when resource.foaf && resource.foaf['name'] then [*resource.foaf['name']].first
+    when resource.dcterms && resource.dcterms['title'] then [*resource.dcterms['title']].first
+    else resource.uri
+    end
+    label
   end
 end
 not_found do

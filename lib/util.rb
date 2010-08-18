@@ -12,6 +12,7 @@ require 'yaml'
 require 'pho'
 require 'addressable/uri'
 require File.dirname(__FILE__) + '/linked_lccn'
+require File.dirname(__FILE__) + '/sparql_queries'
 
 include RDFObject
 unless ENV['PLATFORM_STORE']
@@ -67,6 +68,7 @@ def fetch_resource(uri)
   resource = RDFObject::Resource.new(uri)
   if collection = fetch_from_platform(uri)
     resource = collection[uri]
+    augment_object_display_labels(resource)
   elsif uri =~ /\/people\//
     resource = LinkedLCCN::VIAF.lookup_by_lccn(params[:id])
     unless resource.empty_graph?
@@ -90,6 +92,59 @@ def fetch_resource(uri)
   resource
 end
 
+def parse_sparql_count(response)
+  xml = Nokogiri::XML(response)
+  if c = xml.xpath("/sparql:sparql/sparql:results/sparql:result/sparql:binding/sparql:literal[@datatype='http://www.w3.org/2001/XMLSchema#integer']",
+     'sparql'=> "http://www.w3.org/2005/sparql-results#")
+     count = c.inner_text
+     return count.to_i
+  end
+  0
+end
+
+def generate_sparql_count(condition, prefixes={})
+  string = "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n"
+  prefixes.each_pair do |key, uri|
+    string << "PREFIX #{key}: <#{uri}>\n"
+  end
+  string << "SELECT (count(?s) as ?count) WHERE {\n?s "
+  string << condition
+  string << " }"
+  string
+end
+def get_uri_for_zeitgeist(condition, offset, prefixes={})
+  string = "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n"
+  prefixes.each_pair do |key, uri|
+    string << "PREFIX #{key}: <#{uri}>\n"
+  end
+  string << "SELECT ?s WHERE {\n?s "
+  string << condition
+  string << " }\n"
+  string << "OFFSET #{offset} LIMIT 1"
+  string
+  response = STORE.sparql(string)
+  xml = Nokogiri::XML(response.body.content)
+  uri = xml.xpath("/sparql:sparql/sparql:results/sparql:result/sparql:binding/sparql:uri", 'sparql'=> "http://www.w3.org/2005/sparql-results#")
+  if uri
+    return uri.inner_text
+  end
+end
+def fetch_zeitgeist
+  zeitgeist = {}
+  response = STORE.sparql(generate_sparql_count("?p ?o"))
+  zeitgeist[:triple_count] = parse_sparql_count(response.body.content)
+  response = STORE.sparql(generate_sparql_count("rdf:type bibo:Book", {'bibo'=>"http://purl.org/ontology/bibo/"}))
+  zeitgeist[:book_count] = parse_sparql_count(response.body.content)
+  zeitgeist[:book] = STORE.describe(get_uri_for_zeitgeist("rdf:type bibo:Book", rand(zeitgeist[:book_count]), {'bibo'=>"http://purl.org/ontology/bibo/"}))
+  response = STORE.sparql(generate_sparql_count("rdf:type mo:MusicRelease", {"mo"=>"http://purl.org/ontology/mo/"}))
+  zeitgeist[:music_count] = parse_sparql_count(response.body.content)
+  zeitgeist[:music] = STORE.describe(get_uri_for_zeitgeist("rdf:type mo:MusicRelease", rand(zeitgeist[:music_count]), {"mo"=>"http://purl.org/ontology/mo/"}))  
+  response = STORE.sparql(generate_sparql_count("rdf:type foaf:Person", {"foaf"=>Curie.parse("[foaf:]")}))
+  zeitgeist[:person_count] = parse_sparql_count(response.body.content)
+  zeitgeist[:person] = STORE.describe(get_uri_for_zeitgeist("rdf:type foaf:Person", rand(zeitgeist[:person_count]), {"foaf"=>Curie.parse("[foaf:]")}))  
+  zeitgeist
+end
+
 def fetch_from_platform(uri)
   response = STORE.describe(uri)
   collection = Parser.parse(response.body.content, "rdfxml")
@@ -101,6 +156,22 @@ def augment_resource(resource)
   collection = RDFObject::Collection.new
   collection[resource.uri] = resource
   collection = augment_collection(resource.uri, collection)
+  puts collection.inspect
+  collection[resource.uri].assertions.each_pair do | predicate, objects |
+
+    [*objects].each do |object|
+      next unless object && (object.is_a?(RDFObject::Node) || object.is_a?(RDFObject::ResourceReference))
+      if collection[object.uri]   
+        collection[object.uri].assertions.each_pair do |p, o|
+          [*o].each do |obj|
+            next unless obj
+            object.assert(p, obj)
+          end
+        end
+      end
+    end
+
+  end
   return collection[resource.uri]
 end
 

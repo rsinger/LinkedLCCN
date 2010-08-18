@@ -24,13 +24,15 @@ class LinkedLCCN::VIAF
               resource.relate("[owl:sameAs]", foaf)
               resource.relate("[umbel:isAbout]", concept)
               # Clean up viaf's wonky dbpedia associations.
-              [*foaf.dcterms['relation']].each do | dbpedia |
-                u = Addressable::URI.parse dbpedia.uri
-                u.normalize!
-                next unless u.host == "dbpedia.org"
-                u.path.sub!(/^\/page\//,"/resource/")
-                u.path.sub!(/Wikipedia\:WikiProject_/,"")
-                resource.relate("[owl:sameAs]", u.to_s) 
+              if foaf.dcterms && foaf.dcterms['relation']
+                [*foaf.dcterms['relation']].each do | dbpedia |
+                  u = Addressable::URI.parse dbpedia.uri
+                  u.normalize!
+                  next unless u.host == "dbpedia.org"
+                  u.path.sub!(/^\/page\//,"/resource/")
+                  u.path.sub!(/Wikipedia\:WikiProject_/,"")
+                  resource.relate("[owl:sameAs]", u.to_s) 
+                end
               end
             end
           end
@@ -78,13 +80,15 @@ class LinkedLCCN::VIAF
             resource.assert("[foaf:name]", name_values.join(" ").strip_trailing_punct)    
             resource.relate("[umbel:isAbout]", concept)
             # Clean up viaf's wonky dbpedia associations.
-            [*foaf.dcterms['relation']].each do | dbpedia |
-              u = Addressable::URI.parse dbpedia.uri
-              u.normalize!
-              next unless u.host == "dbpedia.org"
-              u.path.sub!(/^\/page\//,"/resource/")
-              u.path.sub!(/Wikipedia\:WikiProject_/,"")
-              resource.relate("[owl:sameAs]", u.to_s) 
+            if foaf.dcterms && foaf.dcterms['relation']
+              [*foaf.dcterms['relation']].each do | dbpedia |
+                u = Addressable::URI.parse dbpedia.uri
+                u.normalize!
+                next unless u.host == "dbpedia.org"
+                u.path.sub!(/^\/page\//,"/resource/")
+                u.path.sub!(/Wikipedia\:WikiProject_/,"")
+                resource.relate("[owl:sameAs]", u.to_s) 
+              end
             end
             return resource if lccn
           end

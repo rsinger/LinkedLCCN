@@ -11,7 +11,7 @@
           -[*object].each do |o|
             -if o.is_a?(RDFObject::Resource) or o.is_a?(RDFObject::ResourceReference)
               .uriReference
-                %a{:href=>o.uri}= o.uri
+                %a{:href=>o.uri}= display_label(o)
             - else
               .literal= o
   

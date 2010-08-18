@@ -156,7 +156,6 @@ def augment_resource(resource)
   collection = RDFObject::Collection.new
   collection[resource.uri] = resource
   collection = augment_collection(resource.uri, collection)
-  puts collection.inspect
   collection[resource.uri].assertions.each_pair do | predicate, objects |
 
     [*objects].each do |object|
